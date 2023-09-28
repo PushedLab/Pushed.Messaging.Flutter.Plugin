@@ -33,7 +33,7 @@ void main() {
   await FlutterPushedMessaging.init(backgroundMessage);
 
 // To send a message to a specific user, you need to know his Client token.
-  print("Client token: ${FlutterPushedMessaging.token});
+  print("Client token: ${FlutterPushedMessaging.token}");
 
 // Listen to messages whilst your application is in the foreground
   FlutterPushedMessaging.onMessage().listen((message) {
