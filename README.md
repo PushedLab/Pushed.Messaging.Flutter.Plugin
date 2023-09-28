@@ -8,7 +8,7 @@ To learn more about Pushed Messaging, please visit the [Pushed website](https://
 
 ```yaml
 # add this line to your dependencies
-flutter_pushed_messaging: ^1.0.1
+flutter_pushed_messaging: ^1.0.4
 ```
 
 ```dart

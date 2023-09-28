@@ -158,7 +158,7 @@ public class BackgroundService extends Service implements MethodChannel.MethodCa
             flutterLoader.startInitialization(getApplicationContext());
         }
         flutterLoader.ensureInitializationComplete(getApplicationContext(), null);
-        dartEntrypoint = new DartExecutor.DartEntrypoint(flutterLoader.findAppBundlePath(), "package:flutter_pushed/flutter_pushed_platform_interface.dart", "entrypoint");
+        dartEntrypoint = new DartExecutor.DartEntrypoint(flutterLoader.findAppBundlePath(), "package:flutter_pushed_messaging/flutter_pushed_messaging_android.dart", "entrypoint");
 
         Long backgroundHandle=pref.getLong("backgroundHandle", 0);
         String token=pref.getString("token","");

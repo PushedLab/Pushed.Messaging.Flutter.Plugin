@@ -10,7 +10,7 @@ class FlutterPushedMessaging {
   ///Return current service status
   static ServiceStatus get status => FlutterPushedMessagingPlatform.status;
 
-  ///Return current service token
+  ///Return current client token
   static String? get token => FlutterPushedMessagingPlatform.pushToken;
 
   ///Forcibly resets the connection to the server
