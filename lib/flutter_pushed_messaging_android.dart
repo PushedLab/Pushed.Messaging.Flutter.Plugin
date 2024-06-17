@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -25,26 +27,31 @@ Future<void> entrypoint(List<String> args) async {
     JSONMethodCodec(),
   );
   await channel.invokeMethod<dynamic>("lock");
+  addLog(channel, "Start entrypoint");
   await setNewStatus(channel, currentStatus);
   final int rawHandle = int.parse(args[0]);
   final String token=args[1];
+  addLog(channel, "Token: $token");
   final callbackHandle = CallbackHandle.fromRawHandle(rawHandle);
   final onMessage = PluginUtilities.getCallbackFromHandle(callbackHandle);
-
+  List<ConnectivityResult> lastConneectivity=[];
   Connectivity().onConnectivityChanged.listen((result) async{
     await channel.invokeMethod<dynamic>("lock");
-    if(result==ConnectivityResult.wifi) webChannel?.sink.close();
-    if(result==ConnectivityResult.none) {
+    await addLog(channel, "Connectivity changed: $result");
+    if(result.contains(ConnectivityResult.wifi) && !lastConneectivity.contains(ConnectivityResult.wifi)) webChannel?.sink.close();
+    if(result.contains(ConnectivityResult.none)) {
       connected=false;
     } else {
       connected = true;
     }
+    lastConneectivity=result;
     connect(token,channel,onMessage);
   });
 
   channel.setMethodCallHandler((call) async {
     if(call.arguments["method"]=="reconnect" && active) {
       await channel.invokeMethod<dynamic>("lock");
+      await addLog(channel, "Reconnect");
       await setNewStatus(channel, currentStatus);
       webChannel?.sink.close();
     }
@@ -53,12 +60,20 @@ Future<void> entrypoint(List<String> args) async {
   await channel.invokeMethod<dynamic>("unlock");
 }
 
+
 @pragma('vm:entry-point')
 Future<void> setNewStatus(MethodChannel channel,ServiceStatus newStatus) async {
   currentStatus=newStatus;
   await channel.invokeMethod<dynamic>("data", {"type":"status","status":newStatus.index});
 }
 
+@pragma('vm:entry-point')
+Future<void> addLog(MethodChannel channel,String event) async {
+  if(kReleaseMode) return;
+  var fullEvent="${DateTime.now()}: $event";
+  print(fullEvent);
+  await channel.invokeMethod<dynamic>("log", {"event":event});
+}
 
 @pragma('vm:entry-point')
 Future<void> connect(String token,MethodChannel channel,Function? onMessage) async {
@@ -67,6 +82,7 @@ Future<void> connect(String token,MethodChannel channel,Function? onMessage) asy
     return;
   }
   if(active) return;
+  await addLog(channel, "Connecting");
   active=true;
   try {
     await subs?.cancel();
@@ -79,17 +95,22 @@ Future<void> connect(String token,MethodChannel channel,Function? onMessage) asy
     subs=webChannel?.stream.listen((event) async {
       await channel.invokeMethod<dynamic>("lock");
       var message = utf8.decode(event);
+      await addLog(channel, "MESSAGE: $message");
       if (message != "ONLINE") {
-        Map<String,dynamic> data={"type":"message","message":json.decode(message)};
+        var payload=json.decode(message);
+        var response=json.encode(<String, dynamic>{"messageId":payload["messageId"]});
+        webChannel?.sink.add(utf8.encode(response));
+        Map<String,dynamic> data={"type":"message","message":payload};
         var res = await channel.invokeMethod<dynamic>(
             "data", data)??false;
-        if (!res && onMessage != null) await onMessage(json.decode(message));
+        if (!res && onMessage != null) await onMessage(payload);
       }
       await Future.delayed(const Duration(seconds: 5));
       await channel.invokeMethod<dynamic>("unlock");
     },
         onDone: () async {
           await channel.invokeMethod<dynamic>("lock");
+          await addLog(channel, "Closed");
           active=false;
           await setNewStatus(channel, ServiceStatus.disconnected);
           await Future.delayed(const Duration(seconds: 1));
@@ -98,6 +119,7 @@ Future<void> connect(String token,MethodChannel channel,Function? onMessage) asy
   }
   catch (e) {
     await channel.invokeMethod<dynamic>("lock");
+    await addLog(channel, "Error: $e");
     await setNewStatus(channel, ServiceStatus.disconnected);
     await subs?.cancel();
     active=false;
@@ -135,18 +157,22 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
       }
     }
   }
-  Future<String> getNewToken() async {
-    dynamic token;
+
+  Future<String> getNewToken(String token) async {
     try {
-      var response = await http.get(
-          Uri.parse('https://sub.pushed.ru/tokens')).timeout(const Duration(seconds: 10),onTimeout: (() => throw Exception("TimeOut")));
+      var response = await http.post(
+          Uri.parse('https://sub.pushed.ru/tokens'),
+          headers: {"Content-Type": "application/json"},
+          body: "\"$token\"").
+          timeout(Duration(seconds: 10),onTimeout: (() => throw Exception("TimeOut")));
       token=json.decode(response.body)["token"];
     }
     catch (e) {
       token="";
     }
-    return(token??"");
+    return(token);
   }
+
   @override
   Future<void> reconnect() async{
     if(FlutterPushedMessagingPlatform.status!=ServiceStatus.notActive) {
@@ -155,16 +181,22 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
   }
 
   @override
+  Future<String?> getLog() async{
+    return await methodChannel.invokeMethod<String>('getlog');
+  }
+
+  @override
   Future<bool> init(Function(Map<String,dynamic>) backgroundMessageHandler,[String title="Pushed",String body="The service active"]) async {
     methodChannel.setMethodCallHandler(_handle);
     var token = await methodChannel.invokeMethod<String>('getToken');
-    if(token=="") {
-      token = await getNewToken();
-      if (token == "") return false;
+    var newToken = await getNewToken(token??"");
+    if(token!=newToken && newToken!="") {
+      token=newToken;
       await methodChannel.invokeMethod<bool>('setToken', {
         "token": token
       });
     }
+    if (token == "") return false;
     messageCallback=backgroundMessageHandler;
     final CallbackHandle? handle =
     PluginUtilities.getCallbackHandle(backgroundMessageHandler);

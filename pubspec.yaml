@@ -1,24 +1,24 @@
 name: flutter_pushed_messaging
 description: A Flutter plugin for use Pushed messaging system.
-version: 1.0.4
+version: 1.1.0
 repository: https://github.com/PushedLab/Pushed.Messaging.Flutter.Plugin
 
 environment:
-  sdk: '>=2.18.5 <3.0.0'
-  flutter: ">=2.5.0"
+  sdk: '>=3.4.1 <4.0.0'
+  flutter: '>=3.3.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  plugin_platform_interface: ^2.0.2
-  http: ^0.13.5
-  web_socket_channel: ^2.3.0
-  connectivity_plus: ^3.0.2
+  plugin_platform_interface: ^2.1.8
+  http: ^1.2.1
+  web_socket_channel: ^3.0.0
+  connectivity_plus: ^6.0.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^4.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

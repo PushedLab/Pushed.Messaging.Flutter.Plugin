@@ -31,5 +31,9 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
   Future<void> reconnect() {
     throw UnimplementedError('reconnect() has not been implemented.');
   }
+  Future<String?> getLog() {
+    throw UnimplementedError('reconnect() has not been implemented.');
+  }
 
 }
+

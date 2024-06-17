@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_pushed_messaging/flutter_pushed_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart' as perm;
 
 @pragma('vm:entry-point')
 Future<void> backgroundMessage(Map<String,dynamic> message) async {
@@ -47,6 +48,7 @@ Future<void> main() async {
       .resolvePlatformSpecificImplementation<
       AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(channel);
+  await perm.Permission.notification.request();
   await FlutterPushedMessaging.init(backgroundMessage);
   runApp(const MyApp());
 }

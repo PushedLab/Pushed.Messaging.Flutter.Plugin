@@ -1,5 +1,8 @@
 package ru.pushed.flutter_pushed_messaging;
 
+import static android.content.pm.ServiceInfo.*;
+import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING;
+
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
@@ -19,6 +22,7 @@ import androidx.core.app.NotificationCompat;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -111,12 +115,18 @@ public class BackgroundService extends Service implements MethodChannel.MethodCa
                     .setCategory("")
                     .setVisibility(NotificationCompat.VISIBILITY_SECRET)
                     .setContentIntent(pi);
-            startForeground(101, mBuilder.build());
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                startForeground(101, mBuilder.build());
+            } else startForeground(101, mBuilder.build(), FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING);
+
         }
     }
     @Override
     public void onDestroy() {
-        stopForeground(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE);
+        }
+
         methodChannel = null;
         if (backgroundEngine != null) {
             backgroundEngine.getServiceControlSurface().detachFromService();
@@ -202,11 +212,24 @@ public class BackgroundService extends Service implements MethodChannel.MethodCa
             }
             result.success(true);
         }
+        else if (method.equalsIgnoreCase("log")) {
+         String event=(String)call.argument("event");
+         addLogEvent(event);
+         result.success(true);
+        }
         else {
             result.notImplemented();
         }
 
     }
+    public void addLogEvent(String event) {
+        String date= Calendar.getInstance().getTime().toString();
+        String fEvent=date+": "+event+"\n";
+        String log=pref.getString("log","");
+        pref.edit().putString("log", log+fEvent).apply();
+
+    }
+
     public void receiveData(JSONObject data) {
         if (methodChannel != null) {
             try {

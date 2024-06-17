@@ -8,8 +8,6 @@ class MockFlutterPushedMessagingPlatform
     with MockPlatformInterfaceMixin
     implements FlutterPushedMessagingPlatform {
 
-  @override
-  Future<String?> getPlatformVersion() => Future.value('42');
 
   @override
   Future<bool> init(Function(Map<String, dynamic> message) backgroundMessageHandler, [String title = "Pushed", String body = "The service active"]) {
@@ -18,6 +16,12 @@ class MockFlutterPushedMessagingPlatform
 
   @override
   Future<void> reconnect() => Future.value();
+
+  @override
+  Future<String?> getLog() {
+    // TODO: implement getLog
+    throw UnimplementedError();
+  }
 }
 
 void main() {

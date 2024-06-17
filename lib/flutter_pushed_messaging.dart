@@ -33,4 +33,10 @@ class FlutterPushedMessaging {
     return FlutterPushedMessagingPlatform.onMessage;
   }
 
+  ///Returns the service log(debug only)
+  static Future<String?> getLog() {
+    return FlutterPushedMessagingPlatform.instance.getLog();
+  }
+
+
 }

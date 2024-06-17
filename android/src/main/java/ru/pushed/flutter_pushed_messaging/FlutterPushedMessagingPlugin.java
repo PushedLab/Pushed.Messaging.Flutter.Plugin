@@ -133,6 +133,10 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
       String token = pref.getString("token","");
       result.success(token);
     }
+    else if (call.method.equalsIgnoreCase("getlog")) {
+      String log=pref.getString("log","");
+      result.success(log);
+    }
     else if (serviceBinder != null) {
       try {
         serviceBinder.invoke(call.arguments.toString());
