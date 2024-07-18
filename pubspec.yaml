@@ -1,6 +1,6 @@
 name: flutter_pushed_messaging
 description: A Flutter plugin for use Pushed messaging system.
-version: 1.1.0
+version: 1.2.0
 repository: https://github.com/PushedLab/Pushed.Messaging.Flutter.Plugin
 
 environment:
@@ -39,6 +39,8 @@ flutter:
     platforms:
       android:
         package: ru.pushed.flutter_pushed_messaging
+        pluginClass: FlutterPushedMessagingPlugin
+      ios:
         pluginClass: FlutterPushedMessagingPlugin
 
   # To add assets to your plugin package, add an assets section, like this:

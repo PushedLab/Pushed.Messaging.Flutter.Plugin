@@ -1,8 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="ru.pushed.flutter_pushed_messaging_example">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
-   <application
+    <application
         android:label="flutter_pushed_messaging_example"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

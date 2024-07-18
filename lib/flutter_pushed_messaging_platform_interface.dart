@@ -1,23 +1,30 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:flutter_pushed_messaging/flutter_pushed_messaging_ios.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
-
+import 'package:http/http.dart' as http;
 import 'flutter_pushed_messaging.dart';
 import 'flutter_pushed_messaging_android.dart';
 
 abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
-
   FlutterPushedMessagingPlatform() : super(token: _token);
   static final Object _token = Object();
 
-  static FlutterPushedMessagingPlatform _instance = AndroidFlutterPushedMessaging();
-  static var messageController =StreamController<Map<String,dynamic>>.broadcast(sync: true);
-  static var statusController =StreamController<ServiceStatus>.broadcast(sync: true);
+  static FlutterPushedMessagingPlatform _instance = Platform.isIOS
+      ? IosFlutterPushedMessaging()
+      : AndroidFlutterPushedMessaging();
+  static var messageController =
+      StreamController<Map<dynamic, dynamic>>.broadcast(sync: true);
+  static var statusController =
+      StreamController<ServiceStatus>.broadcast(sync: true);
 
-  static ServiceStatus status=ServiceStatus.notActive;
+  static ServiceStatus status = ServiceStatus.notActive;
   static String? pushToken;
   static FlutterPushedMessagingPlatform get instance => _instance;
-  static Stream<Map<String,dynamic>> get onMessage => messageController.stream;
+  static Stream<Map<dynamic, dynamic>> get onMessage =>
+      messageController.stream;
   static Stream<ServiceStatus> get onStatus => statusController.stream;
 
   static set instance(FlutterPushedMessagingPlatform instance) {
@@ -25,15 +32,59 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<bool> init(Function(Map<String,dynamic>) backgroundMessageHandler,[String title="Pushed",String body="The service active"]) {
+  Future<bool> confirmDelivered(String token, String messageId) async {
+    var result = true;
+    var basicAuth = "Basic ${base64.encode(utf8.encode('$token:$messageId'))}";
+    try {
+      var response = await http
+          .post(
+              Uri.parse('https://pub.pushed.ru/v1/confirm?transportKind=Apns'),
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": basicAuth
+              },
+              body: "")
+          .timeout(const Duration(seconds: 10),
+              onTimeout: (() => throw Exception("TimeOut")));
+    } catch (e) {
+      result = false;
+    }
+    print(result);
+    return (result);
+  }
+
+  Future<String> getNewToken(String token, {String? apnsToken}) async {
+    final body = json.encode(<String, dynamic>{
+      "clientToken": token,
+      if (apnsToken != null)
+        "deviceSettings": [
+          {"deviceToken": apnsToken, "transportKind": "Apns"}
+        ]
+    });
+    print(body);
+    try {
+      var response = await http
+          .post(Uri.parse('https://sub.pushed.ru/tokens'),
+              headers: {"Content-Type": "application/json"}, body: body)
+          .timeout(const Duration(seconds: 10),
+              onTimeout: (() => throw Exception("TimeOut")));
+      token = json.decode(response.body)["token"];
+    } catch (e) {
+      token = "";
+    }
+    return (token);
+  }
+
+  Future<bool> init(Function(Map<dynamic, dynamic>) backgroundMessageHandler,
+      [String title = "Pushed", String body = "The service active"]) {
     throw UnimplementedError('init() has not been implemented.');
   }
+
   Future<void> reconnect() {
     throw UnimplementedError('reconnect() has not been implemented.');
   }
+
   Future<String?> getLog() {
     throw UnimplementedError('reconnect() has not been implemented.');
   }
-
 }
-

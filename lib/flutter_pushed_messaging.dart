@@ -1,11 +1,7 @@
-
 import 'flutter_pushed_messaging_platform_interface.dart';
 
-enum ServiceStatus {
-  notActive,
-  disconnected,
-  active
-}
+enum ServiceStatus { notActive, disconnected, active }
+
 class FlutterPushedMessaging {
   ///Return current service status
   static ServiceStatus get status => FlutterPushedMessagingPlatform.status;
@@ -14,13 +10,17 @@ class FlutterPushedMessaging {
   static String? get token => FlutterPushedMessagingPlatform.pushToken;
 
   ///Forcibly resets the connection to the server
-  static Future<void> reconnect(){
+  static Future<void> reconnect() {
     return FlutterPushedMessagingPlatform.instance.reconnect();
   }
 
   ///Init and start background service
-  static Future<bool> init(Function(Map<String,dynamic>) backgroundMessageHandler,[String title="Pushed",String body="The service active"]) {
-    return FlutterPushedMessagingPlatform.instance.init(backgroundMessageHandler,title,body);
+  static Future<bool> init(
+      Function(Map<dynamic, dynamic>) backgroundMessageHandler,
+      [String title = "Pushed",
+      String body = "The service active"]) {
+    return FlutterPushedMessagingPlatform.instance
+        .init(backgroundMessageHandler, title, body);
   }
 
   ///Returns a Stream that is called when changing service status
@@ -29,7 +29,7 @@ class FlutterPushedMessaging {
   }
 
   ///Returns a Stream that is called when an incoming new message
-  static Stream<Map<String,dynamic>> onMessage() {
+  static Stream<Map<dynamic, dynamic>> onMessage() {
     return FlutterPushedMessagingPlatform.onMessage;
   }
 
@@ -37,6 +37,4 @@ class FlutterPushedMessaging {
   static Future<String?> getLog() {
     return FlutterPushedMessagingPlatform.instance.getLog();
   }
-
-
 }

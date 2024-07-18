@@ -22,6 +22,18 @@ class MockFlutterPushedMessagingPlatform
     // TODO: implement getLog
     throw UnimplementedError();
   }
+
+  @override
+  Future<String> getNewToken(String token, {String? apnsToken}) {
+    // TODO: implement getNewToken
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> confirmDelivered(String token,String messageId) {
+    // TODO: implement confirmDelivered
+    throw UnimplementedError();
+  }
 }
 
 void main() {

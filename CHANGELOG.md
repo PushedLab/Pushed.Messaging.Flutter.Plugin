@@ -1,3 +1,8 @@
+## 1.2.0
+
+* Added iOS support.
+* The SHEDULE_EXACT_ALARM permission is no longer required for the plugin to work for Android.
+
 ## 1.1.0
 
 * Bumped `compileSdk` to 34.

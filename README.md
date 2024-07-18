@@ -15,6 +15,9 @@ flutter_pushed_messaging: ^1.1.0
 import 'flutter_pushed_messaging/flutter_pushed_messaging.dart';
 ```
 
+On iOS, make sure you have correctly configured your app to support push notifications:
+You need to add push notifications capability and remote notification background mode.
+
 ### Implementation
 
 ```dart

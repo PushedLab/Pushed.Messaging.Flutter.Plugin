@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 
@@ -7,49 +10,55 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart' as perm;
 
 @pragma('vm:entry-point')
-Future<void> backgroundMessage(Map<String,dynamic> message) async {
+Future<void> backgroundMessage(Map<dynamic,dynamic> message) async {
   WidgetsFlutterBinding.ensureInitialized();
-  var flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-  String title=message["title"]??"";
-  String body=message["body"]??"";
-  if(title!="" || body!="") {
-    await flutterLocalNotificationsPlugin.show(
-      8888,
-      title,
-      body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-            'push_channel', // id
-            'MY CHANNEL FOR PUSH',
-            icon: 'launch_background',
-            ongoing: false,
-            importance: Importance.max,
-            priority: Priority.high,
-            visibility: NotificationVisibility.public,
-            enableLights: true
+  print("Backgroung message: $message");
+  if(Platform.isAndroid){
+    var flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    var title=(message["data"]["title"])??"";
+    var body=(message["data"]["body"])??"";
+    if(title!="" || body!="") {
+      await flutterLocalNotificationsPlugin.show(
+        8888,
+        title,
+        body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+              'push_channel', // id
+              'MY CHANNEL FOR PUSH',
+              icon: 'launch_background',
+              ongoing: false,
+              importance: Importance.max,
+              priority: Priority.high,
+              visibility: NotificationVisibility.public,
+              enableLights: true
 
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
 }
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'push_channel', // id
-    'MY CHANNEL FOR PUSH', // title
-    description:
-    'This channel is used for push messages', // description
-    importance: Importance.max, // importance must be at low or higher level
-  );
-  var flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-      AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(channel);
-  await perm.Permission.notification.request();
+  if(Platform.isAndroid) {
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'push_channel', // id
+      'MY CHANNEL FOR PUSH', // title
+      description:
+      'This channel is used for push messages', // description
+      importance: Importance.max, // importance must be at low or higher level
+    );
+    var flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+    await perm.Permission.notification.request();
+  }
   await FlutterPushedMessaging.init(backgroundMessage);
+  print("Token: ${FlutterPushedMessaging.token}");
   runApp(const MyApp());
 }
 
@@ -76,8 +85,9 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> initPlatformState() async {
     FlutterPushedMessaging.onMessage().listen((message) {
-      var title=message["title"]??"";
-      String body=message["body"]??"";
+      print("Message: $message");
+      var title=(message["data"]["title"])??"";
+      var body=(message["data"]["body"])??"";
       if(title!="" || body!="") {
         setState(() {
           _title=title;
@@ -117,11 +127,17 @@ class _MyAppState extends State<MyApp> {
                       await Clipboard.setData(ClipboardData(text: _token));
                     },
                     child: Text("Copy token",style: Theme.of(context).textTheme.titleMedium)),
-                TextButton(
+                if(Platform.isAndroid) TextButton(
                     onPressed: () async {
                       await FlutterPushedMessaging.reconnect();
                     },
-                    child: Text("Reconnect",style: Theme.of(context).textTheme.titleMedium))],
+                    child: Text("Reconnect",style: Theme.of(context).textTheme.titleMedium)),
+                if(!kReleaseMode) TextButton(
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: await FlutterPushedMessaging.getLog()??""));
+                    },
+                    child: Text("Get Log",style: Theme.of(context).textTheme.titleMedium)),
+              ],
             )
         ),
       ),

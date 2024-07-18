@@ -19,7 +19,7 @@ public class WatchdogReceiver extends BroadcastReceiver {
     private static final String ACTION_RESPAWN = "pushed.background_service.RESPAWN";
     public static int numPlaned=0;
     public static void enqueue(Context context) {
-        enqueue(context, 3600000);
+        enqueue(context, 900000);
     }
     public static void enqueue(Context context, int millis) {
         numPlaned++;
@@ -33,7 +33,7 @@ public class WatchdogReceiver extends BroadcastReceiver {
         }
 
         PendingIntent pIntent = PendingIntent.getBroadcast(context, QUEUE_REQUEST_ID, intent, flags);
-        AlarmManagerCompat.setExact(manager, AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + millis, pIntent);
+        manager.set(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + millis, pIntent);
     }
 
     @Override
