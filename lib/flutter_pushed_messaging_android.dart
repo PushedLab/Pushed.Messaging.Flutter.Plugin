@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'flutter_pushed_messaging.dart';
@@ -39,8 +38,9 @@ Future<void> entrypoint(List<String> args) async {
     await channel.invokeMethod<dynamic>("lock");
     await addLog(channel, "Connectivity changed: $result");
     if (result.contains(ConnectivityResult.wifi) &&
-        !lastConneectivity.contains(ConnectivityResult.wifi))
+        !lastConneectivity.contains(ConnectivityResult.wifi)) {
       webChannel?.sink.close();
+    }
     if (result.contains(ConnectivityResult.none)) {
       connected = false;
     } else {

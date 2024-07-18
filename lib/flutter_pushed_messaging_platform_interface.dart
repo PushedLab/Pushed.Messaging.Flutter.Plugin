@@ -36,7 +36,7 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
     var result = true;
     var basicAuth = "Basic ${base64.encode(utf8.encode('$token:$messageId'))}";
     try {
-      var response = await http
+      await http
           .post(
               Uri.parse('https://pub.pushed.ru/v1/confirm?transportKind=Apns'),
               headers: {
@@ -49,7 +49,6 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
     } catch (e) {
       result = false;
     }
-    print(result);
     return (result);
   }
 
