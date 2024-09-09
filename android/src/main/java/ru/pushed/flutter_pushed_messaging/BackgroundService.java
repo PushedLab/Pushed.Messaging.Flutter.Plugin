@@ -217,6 +217,20 @@ public class BackgroundService extends Service implements MethodChannel.MethodCa
          addLogEvent(event);
          result.success(true);
         }
+        else if (method.equalsIgnoreCase("setLastMessageId")) {
+	 try {
+           pref.edit().putString("lastMessageId", (String)call.argument("lastMessageId")).apply();
+           result.success(true);
+         }
+         catch (Exception e)
+         {
+           result.error("Get params Error",e.getMessage(),e);
+         }
+        }   
+        else if (method.equalsIgnoreCase("getLastMessageId")) {
+          String messageId = pref.getString("lastMessageId","");
+          result.success(messageId);
+        }  
         else {
             result.notImplemented();
         }

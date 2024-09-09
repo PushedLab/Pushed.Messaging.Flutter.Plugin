@@ -1,3 +1,8 @@
+## 1.3.0
+
+* Added Fcm and Hpk support.
+
+
 ## 1.2.0
 
 * Added iOS support.

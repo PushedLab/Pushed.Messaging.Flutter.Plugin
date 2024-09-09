@@ -18,14 +18,19 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
 
   Future<dynamic> _handle(MethodCall call) async {
     var confirmResult = false;
+    await methodChannel.invokeMethod<bool>(
+        'setLog', {"event": "FL Handled method: ${call.method}"});
+
     if (call.method.startsWith("onReceiveData")) {
       try {
         var data = json.decode(call.arguments["data"]);
         call.arguments["data"] = data;
       } catch (_) {}
       var token = (await methodChannel.invokeMethod<String>('getToken')) ?? "";
-      confirmResult =
-          await confirmDelivered(token, call.arguments["messageId"]);
+      confirmResult = await FlutterPushedMessagingPlatform.confirmDelivered(
+          token, call.arguments["messageId"], "Apns");
+      await methodChannel.invokeMethod<bool>(
+          'setLog', {"event": "FL Confirm Done: $confirmResult"});
     }
     switch (call.method) {
       case "onReceiveData":
@@ -36,14 +41,21 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
         await messageCallback!(call.arguments);
         break;
       case "apnsToken":
-        apnsToken = call.arguments;
+        apnsToken ??= call.arguments;
         break;
       default:
     }
     if (call.method.startsWith("onReceiveData")) {
-      await methodChannel
-          .invokeMethod("messageDone", {"confirmed": confirmResult});
+      await methodChannel.invokeMethod("messageDone", {
+        "confirmed": confirmResult,
+        "isclick": call.arguments["buttonId"] != null
+      });
     }
+  }
+
+  @override
+  Future<String?> getLog() async {
+    return await methodChannel.invokeMethod<String>('getLog');
   }
 
   @override
@@ -59,6 +71,8 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
       if (apnsToken != null) break;
       await Future.delayed(Duration(milliseconds: 100));
     }
+    await methodChannel
+        .invokeMethod<bool>('setLog', {"event": "FL ApnsToken: $apnsToken"});
     if (apnsToken != null) {
       var token = await methodChannel.invokeMethod<String>('getToken');
       var newToken = await getNewToken(token ?? "", apnsToken: apnsToken);
@@ -70,9 +84,12 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
       if (token != "") {
         FlutterPushedMessagingPlatform.pushToken = token;
         FlutterPushedMessagingPlatform.status = ServiceStatus.active;
+        await methodChannel
+            .invokeMethod<bool>('setLog', {"event": "FL Init Success"});
         return true;
       }
     }
+    await methodChannel.invokeMethod<bool>('setLog', {"event": "FL Init Fail"});
     return false;
   }
 

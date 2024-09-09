@@ -21,6 +21,8 @@ import androidx.lifecycle.Lifecycle;
 
 import org.json.JSONObject;
 
+import java.util.Calendar;
+
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
@@ -129,9 +131,32 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
         result.error("Get params Error",e.getMessage(),e);
       }
     }
+    else if (call.method.equals("setLastMessageId")) {
+      try {
+        pref.edit().putString("lastMessageId", arg.getString("lastMessageId")).apply();
+        result.success(true);
+      }
+      catch (Exception e)
+      {
+        result.error("Get params Error",e.getMessage(),e);
+      }
+    }
+    else if (call.method.equals("getLastMessageId")) {
+      String messageId = pref.getString("lastMessageId","");
+      result.success(messageId);
+    }
     else if (call.method.equals("getToken")) {
       String token = pref.getString("token","");
       result.success(token);
+    }
+    else if (call.method.equals("getHandle")) {
+      long handle = pref.getLong("backgroundHandle",0);
+      result.success(handle);
+    }
+    else if (call.method.equalsIgnoreCase("log")) {
+      String event=(String)call.argument("event");
+      addLogEvent(event);
+      result.success(true);
     }
     else if (call.method.equalsIgnoreCase("getlog")) {
       String log=pref.getString("log","");
@@ -161,6 +186,14 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
     }
 
   }
+  public void addLogEvent(String event) {
+     String date= Calendar.getInstance().getTime().toString();
+     String fEvent=date+": "+event+"\n";
+     String log=pref.getString("log","");
+     pref.edit().putString("log", log+fEvent).apply();
+
+  }
+
   private void receiveData(JSONObject data) {
     HiddenLifecycleReference reference =
             (HiddenLifecycleReference) activityBinding.getLifecycle();
@@ -213,6 +246,7 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
   @Override
   public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
     activityBinding=binding;
+
   }
 
   @Override

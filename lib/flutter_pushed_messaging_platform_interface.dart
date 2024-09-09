@@ -32,13 +32,15 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<bool> confirmDelivered(String token, String messageId) async {
+  static Future<bool> confirmDelivered(
+      String token, String messageId, String transport) async {
     var result = true;
     var basicAuth = "Basic ${base64.encode(utf8.encode('$token:$messageId'))}";
     try {
       await http
           .post(
-              Uri.parse('https://pub.pushed.ru/v1/confirm?transportKind=Apns'),
+              Uri.parse(
+                  'https://pub.pushed.ru/v1/confirm?transportKind=$transport'),
               headers: {
                 "Content-Type": "application/json",
                 "Authorization": basicAuth
@@ -52,15 +54,21 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
     return (result);
   }
 
-  Future<String> getNewToken(String token, {String? apnsToken}) async {
+  Future<String> getNewToken(String token,
+      {String? apnsToken, String? fcmToken, String? hpkToken}) async {
+    var deviceSettings = [];
+    if (apnsToken != null)
+      deviceSettings.add({"deviceToken": apnsToken, "transportKind": "Apns"});
+    if (fcmToken != null)
+      deviceSettings.add({"deviceToken": fcmToken, "transportKind": "Fcm"});
+    if (hpkToken != null)
+      deviceSettings.add({"deviceToken": hpkToken, "transportKind": "Hpk"});
+
     final body = json.encode(<String, dynamic>{
       "clientToken": token,
-      if (apnsToken != null)
-        "deviceSettings": [
-          {"deviceToken": apnsToken, "transportKind": "Apns"}
-        ]
+      if (deviceSettings.isNotEmpty) "deviceSettings": deviceSettings
     });
-    print(body);
+    print("Body: $body");
     try {
       var response = await http
           .post(Uri.parse('https://sub.pushed.ru/tokens'),
@@ -84,6 +92,6 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
   }
 
   Future<String?> getLog() {
-    throw UnimplementedError('reconnect() has not been implemented.');
+    throw UnimplementedError('getLog() has not been implemented.');
   }
 }

@@ -12,7 +12,7 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
     }
 
   public static func register(with registrar: FlutterPluginRegistrar) {
-    var log=UserDefaults.standard.string(forKey: "pushedLog") ?? ""
+    let log=UserDefaults.standard.string(forKey: "pushedMessaging.pushedLog") ?? ""
     print("Log: \(log)")
     let channel = FlutterMethodChannel(name: "flutter_pushed_messaging", binaryMessenger: registrar.messenger())
     let instance = FlutterPushedMessagingPlugin(channel: channel)
@@ -23,31 +23,55 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
     
   let channel: FlutterMethodChannel
   var lastNotification: [AnyHashable: Any]?
+  var initNotification: [AnyHashable: Any]?
   var isBackground = true
+  var isInited=false
   var messageHandler: ((UIBackgroundFetchResult) -> Void)?
+  var clickHandler: (() -> Void)?
+
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
       addLog("Invoked: \(call.method)")
     switch call.method {
     case "requestNotificationPermissions":
         requestNotificationPermissions(call, result: result)
     case "setToken":
-        UserDefaults.standard.setValue((call.arguments as? [String: Any])?["token"] as? String ?? "", forKey: "clientToken")
+        UserDefaults.standard.setValue((call.arguments as? [String: Any])?["token"] as? String ?? "", forKey: "pushedMessaging.clientToken")
         addLog("Set Token Done")
         result(true)
     case "getToken":
-        result(UserDefaults.standard.string(forKey: "clientToken") ?? "")
+        result(UserDefaults.standard.string(forKey: "pushedMessaging.clientToken") ?? "")
     case "getLog":
-        result(UserDefaults.standard.string(forKey: "pushedLog") ?? "")
+        result(UserDefaults.standard.string(forKey: "pushedMessaging.pushedLog") ?? "")
+    case "setLog":
+        addLog((call.arguments as? [String: Any])?["event"] as? String ?? "")
+        result(true)
     case "messageDone":
         addLog("Confirtmed: \((call.arguments as? [String: Any])?["confirmed"] as? Bool ?? false)")
-        if(messageHandler != nil){
+        var isClick=(call.arguments as? [String: Any])?["isclick"] as? Bool ?? false
+        if(messageHandler != nil && !isClick){
             addLog("Free Handler")
             messageHandler!(.noData)
             messageHandler=nil
         }
+        if(clickHandler != nil && isClick){
+            addLog("Free ClickHandler")
+            clickHandler!()
+            clickHandler=nil
+        }
+
         result(lastNotification)
     case "configure":
         UIApplication.shared.registerForRemoteNotifications()
+        if(initNotification != nil) {
+            addLog("Send initial Message")
+            if isBackground {
+                self.channel.invokeMethod("onReceiveDataBg", arguments: initNotification)
+            } else {
+                channel.invokeMethod("onReceiveData", arguments: initNotification)
+            }
+            initNotification=nil
+        }
+        isInited=true
         addLog("Configure Done")
         result(nil)
     default:
@@ -59,7 +83,7 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
   func requestNotificationPermissions(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
 
     let center = UNUserNotificationCenter.current()
-    let application = UIApplication.shared
+    //let application = UIApplication.shared
         
     func readBool(_ key: String) -> Bool {
         (call.arguments as? [String: Any])?[key] as? Bool ?? false
@@ -99,16 +123,15 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
         }
         result(granted)
     }
-    application.registerForRemoteNotifications()
+    //application.registerForRemoteNotifications()
     addLog("Request Permission DONE")
   }
   func addLog(_ event: String){
   #if DEBUG
       
     print(event)
-    var log=UserDefaults.standard.string(forKey: "pushedLog") ?? ""
-    UserDefaults.standard.set(log+"\(Date()): \(event)\n", forKey: "pushedLog")
-    //UserDefaults.standard.set("", forKey: "pushedLog")
+    let log=UserDefaults.standard.string(forKey: "pushedMessaging.pushedLog") ?? ""
+    UserDefaults.standard.set(log+"\(Date()): \(event)\n", forKey: "pushedMessaging.pushedLog")
   #endif
   }
 
@@ -127,14 +150,44 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
     channel.invokeMethod("apnsToken", arguments: deviceToken.hexString)
   }
 
+  public func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+    var userInfo = response.notification.request.content.userInfo
+    guard userInfo["aps"] != nil else {
+        return
+    }
+    userInfo["buttonId"] = response.actionIdentifier
+    addLog("Message click: \(userInfo)")
+    clickHandler=completionHandler
+    lastNotification=userInfo
+    if(isInited){
+        addLog("Send Message")
+        if isBackground {
+            self.channel.invokeMethod("onReceiveDataBg", arguments: userInfo)
+        } else {
+            channel.invokeMethod("onReceiveData", arguments: userInfo)
+        }
+      }
+      else{
+            addLog("Save as initial Message")
+            initNotification=userInfo
+      }
+  }
+
   public func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) -> Bool {
     addLog("Message: \(userInfo)")
     messageHandler=completionHandler
     lastNotification=userInfo
-    if isBackground {
-        self.channel.invokeMethod("onReceiveDataBg", arguments: userInfo)
-    } else {
-        channel.invokeMethod("onReceiveData", arguments: userInfo)
+    if(isInited){
+        addLog("Send Message")
+        if isBackground {
+            self.channel.invokeMethod("onReceiveDataBg", arguments: userInfo)
+        } else {
+            channel.invokeMethod("onReceiveData", arguments: userInfo)
+        }
+    }
+    else{
+          addLog("Save as initial Message")
+          initNotification=userInfo
     }
     return true
   }

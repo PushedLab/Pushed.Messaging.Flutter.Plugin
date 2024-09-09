@@ -8,7 +8,7 @@ To learn more about Pushed Messaging, please visit the [Pushed website](https://
 
 ```yaml
 # add this line to your dependencies
-flutter_pushed_messaging: ^1.2.0
+flutter_pushed_messaging: ^1.3.0
 ```
 
 ```dart
@@ -17,6 +17,80 @@ import 'flutter_pushed_messaging/flutter_pushed_messaging.dart';
 
 On iOS, make sure you have correctly configured your app to support push notifications:
 You need to add push notifications capability and remote notification background mode.
+
+On iOS, add the following lines to the didFinishLaunchingWithOptions method in the 
+AppDelegate.m/AppDelegate.swift file of your iOS project
+
+```swift
+if #available(iOS 10.0, *) {
+  UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
+}
+```
+
+On Android, to support Fcm, you must follow these steps:
+
+**Step 1.** Add it in your root build.gradle add this dependencies 
+
+```gradle
+buildscript {
+...
+    dependencies {
+        classpath 'com.google.gms:google-services:4.3.15'
+        classpath 'com.google.firebase:firebase-crashlytics-gradle:2.8.1'
+        ...
+    }
+}
+
+```
+
+**Step 2.** Place your google-services.json in Android/app folder
+
+**Step 3.** Add it in your app/build.gradle add this plugins 
+
+```gradle
+...
+apply plugin: 'com.google.gms.google-services'
+apply plugin: 'com.google.firebase.crashlytics'
+```
+
+On Android, to support Hpk, you must follow these steps:
+
+**Step 1.** Add it in your root build.gradle add this 
+
+```gradle
+buildscript {
+...
+    repositories {
+        ...
+        maven { url 'https://developer.huawei.com/repo/' }
+    }
+    dependencies {
+        classpath 'com.huawei.agconnect:agcp:1.5.2.300'
+        ...
+    }
+}
+allprojects {
+    repositories {
+        ...
+        maven { url 'https://developer.huawei.com/repo/' }
+    }
+}
+
+```
+
+**Step 2.** Place your agconnect-services.json in Android/app folder
+
+**Step 3.** Add it in your app/build.gradle add this 
+
+```gradle
+...
+dependencies {
+    ...
+    implementation 'com.huawei.agconnect:agconnect-core:1.5.2.300'
+}
+...
+apply plugin: 'com.huawei.agconnect' 
+```
 
 ### Implementation
 
