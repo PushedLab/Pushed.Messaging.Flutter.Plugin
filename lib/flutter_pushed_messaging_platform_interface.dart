@@ -33,16 +33,17 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
   }
 
   static Future<bool> confirmDelivered(
-      String token, String messageId, String transport) async {
+      String token, String messageId, String transport, String? traceId) async {
     var result = true;
     var basicAuth = "Basic ${base64.encode(utf8.encode('$token:$messageId'))}";
     try {
       await http
           .post(
               Uri.parse(
-                  'https://pub.pushed.ru/v1/confirm?transportKind=$transport'),
+                  'https://pub.pushed.ru/v2/confirm?transportKind=$transport'),
               headers: {
                 "Content-Type": "application/json",
+                if (traceId != null) "mf-trace-id": traceId,
                 "Authorization": basicAuth
               },
               body: "")
@@ -55,7 +56,10 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
   }
 
   Future<String> getNewToken(String token,
-      {String? apnsToken, String? fcmToken, String? hpkToken}) async {
+      {String? apnsToken,
+      String? fcmToken,
+      String? hpkToken,
+      String? ruStoreToken}) async {
     var deviceSettings = [];
     if (apnsToken != null)
       deviceSettings.add({"deviceToken": apnsToken, "transportKind": "Apns"});
@@ -63,19 +67,24 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
       deviceSettings.add({"deviceToken": fcmToken, "transportKind": "Fcm"});
     if (hpkToken != null)
       deviceSettings.add({"deviceToken": hpkToken, "transportKind": "Hpk"});
+    if (ruStoreToken != null)
+      deviceSettings
+          .add({"deviceToken": ruStoreToken, "transportKind": "RuStore"});
 
     final body = json.encode(<String, dynamic>{
       "clientToken": token,
       if (deviceSettings.isNotEmpty) "deviceSettings": deviceSettings
     });
-    print("Body: $body");
+    print("Body: $body ");
+    print("RuStoreToken: $ruStoreToken");
+
     try {
       var response = await http
-          .post(Uri.parse('https://sub.pushed.ru/tokens'),
+          .post(Uri.parse('https://sub.pushed.ru/v2/tokens'),
               headers: {"Content-Type": "application/json"}, body: body)
           .timeout(const Duration(seconds: 10),
               onTimeout: (() => throw Exception("TimeOut")));
-      token = json.decode(response.body)["token"];
+      token = json.decode(response.body)["model"]["clientToken"];
     } catch (e) {
       token = "";
     }

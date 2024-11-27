@@ -24,7 +24,7 @@ class MockFlutterPushedMessagingPlatform
   }
 
   @override
-  Future<String> getNewToken(String token, {String? apnsToken,String? fcmToken,String? hpkToken}) {
+  Future<String> getNewToken(String token, {String? apnsToken,String? fcmToken,String? hpkToken,String? ruStoreToken}) {
     // TODO: implement getNewToken
     throw UnimplementedError();
   }

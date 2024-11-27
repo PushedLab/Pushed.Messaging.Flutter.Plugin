@@ -17,6 +17,13 @@
             android:stopWithTask="false"
             android:foregroundServiceType="remoteMessaging"
             />
+        <service
+            android:name=".RuStorePushService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="ru.rustore.sdk.pushclient.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
         <receiver
             android:name=".WatchdogReceiver"
             android:enabled="true"

@@ -95,7 +95,7 @@ Future<void> connect(
     await subs?.cancel();
     webChannel?.sink.close();
     webChannel = WebSocketChannel.connect(
-      Uri.parse('wss://sub.pushed.ru/v1/$token'),
+      Uri.parse('wss://sub.pushed.ru/v2/open-websocket/$token'),
     );
     await webChannel?.ready;
     await setNewStatus(channel, ServiceStatus.active);
@@ -106,13 +106,17 @@ Future<void> connect(
       if (message != "ONLINE") {
         var payload = json.decode(message);
         var messageId = payload["messageId"];
+        var traceId = payload["mfTraceId"];
         var lastMessageId =
             await channel.invokeMethod<String>("getLastMessageId");
         if (lastMessageId != messageId) {
           await addLog(channel, "Pushed processing message");
           await channel.invokeMethod<dynamic>(
               "setLastMessageId", {"lastMessageId": messageId});
-          var response = json.encode(<String, dynamic>{"messageId": messageId});
+          var response = json.encode(<String, dynamic>{
+            "messageId": messageId,
+            if (traceId != null) "mfTraceId": traceId
+          });
           webChannel?.sink.add(utf8.encode(response));
           try {
             var data = json.decode(payload["data"]);
@@ -152,8 +156,8 @@ Future<void> messagingBackgroundHandler(
   await addLog(methodChannel, "$platform background message: $pushedMessage");
   var token = await methodChannel.invokeMethod<String>('getToken');
   var rawHandle = await methodChannel.invokeMethod<int>('getHandle');
-  await FlutterPushedMessagingPlatform.confirmDelivered(
-      token ?? "", pushedMessage["messageId"], platform);
+  await FlutterPushedMessagingPlatform.confirmDelivered(token ?? "",
+      pushedMessage["messageId"], platform, pushedMessage["mfTraceId"]);
   var lastMessageId =
       await methodChannel.invokeMethod<String>('getLastMessageId');
   if (lastMessageId != pushedMessage["messageId"]) {
@@ -182,6 +186,14 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       AndroidFlutterPushedMessaging.convertMessage(message.toMap()), "Fcm");
 }
 
+@pragma('vm:entry-point')
+Future<void> ruStoreEntrypoint(List<String> args) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await messagingBackgroundHandler(
+      AndroidFlutterPushedMessaging.convertMessage(json.decode(args[0])),
+      "RuStore");
+}
+
 class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
   @visibleForTesting
   final methodChannel =
@@ -190,14 +202,14 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
   Map<dynamic, dynamic>? initialPush;
 
   static Map<dynamic, dynamic> convertMessage(Map<String, dynamic> message) {
-    print("Mess: $message");
     var result = message;
     var data = message["data"]?["data"];
-    print(data);
     var messageId = message["data"]?["messageId"];
-    print(messageId);
     var buttonId = message["data"]?["buttonId"];
-    print(buttonId);
+    var traceId = message["data"]?["mfTraceId"];
+    if (traceId != null) {
+      result["mfTraceId"] = traceId;
+    }
     if (buttonId != null) {
       result["buttonId"] = buttonId;
     }
@@ -217,12 +229,13 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
 
   Future<void> clickOnPush(
       Map<dynamic, dynamic> pushedMessage, String platform) async {
-    if (pushedMessage["buttonId"] == null)
+    if (pushedMessage["buttonId"] == null) {
       pushedMessage["buttonId"] = "DEFAULT";
+    }
     await addLog(methodChannel, '$platform click on push: $pushedMessage');
     var token = await methodChannel.invokeMethod<String>('getToken');
-    await FlutterPushedMessagingPlatform.confirmDelivered(
-        token ?? "", pushedMessage["messageId"], "Hpk");
+    await FlutterPushedMessagingPlatform.confirmDelivered(token ?? "",
+        pushedMessage["messageId"], "Hpk", pushedMessage["mfTraceId"]);
     FlutterPushedMessagingPlatform.messageController.sink.add(pushedMessage);
     await methodChannel.invokeMethod<bool>(
         'setLastMessageId', {"lastMessageId": pushedMessage["messageId"]});
@@ -230,13 +243,27 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
 
   Future<dynamic> _handle(MethodCall call) async {
     if (call.arguments["type"] == "message") {
+      dynamic msg;
+      if (call.arguments["transport"] == "ruStore") {
+        var lastMessageId =
+            await methodChannel.invokeMethod<String>('getLastMessageId');
+        msg = convertMessage(call.arguments);
+        if (lastMessageId == msg["messageId"]) return;
+        await addLog(methodChannel, "RuStore processing message");
+        await FlutterPushedMessagingPlatform.confirmDelivered(
+            FlutterPushedMessaging.token ?? "",
+            msg["messageId"],
+            "RuStore",
+            msg["mfTraceId"]);
+      } else {
+        msg = call.arguments["message"];
+      }
       switch (call.method) {
         case "onReceiveData":
-          FlutterPushedMessagingPlatform.messageController.sink
-              .add(call.arguments["message"]);
+          FlutterPushedMessagingPlatform.messageController.sink.add(msg);
           break;
         case "onReceiveDataBg":
-          await messageCallback!(call.arguments["message"]);
+          await messageCallback!(msg);
           break;
         default:
       }
@@ -281,8 +308,8 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
             AndroidFlutterPushedMessaging.convertMessage(messageOfMap);
         await addLog(methodChannel, 'Hpk onMessage: $pushedMessage');
         var token = await methodChannel.invokeMethod<String>('getToken');
-        await FlutterPushedMessagingPlatform.confirmDelivered(
-            token ?? "", pushedMessage["messageId"], "Hpk");
+        await FlutterPushedMessagingPlatform.confirmDelivered(token ?? "",
+            pushedMessage["messageId"], "Hpk", pushedMessage["mfTraceId"]);
         var lastMessageId =
             await methodChannel.invokeMethod<String>('getLastMessageId');
         if (lastMessageId != pushedMessage["messageId"]) {
@@ -299,7 +326,6 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
         message["data"] = event["extras"];
         var pushedMessage =
             AndroidFlutterPushedMessaging.convertMessage(message);
-        print("onClick");
         await clickOnPush(pushedMessage, "Hpk");
       });
 
@@ -339,8 +365,8 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
             AndroidFlutterPushedMessaging.convertMessage(message.toMap());
         await addLog(methodChannel, 'Firebase onMessage: $pushedMessage');
         var token = await methodChannel.invokeMethod<String>('getToken');
-        await FlutterPushedMessagingPlatform.confirmDelivered(
-            token ?? "", pushedMessage["messageId"], "Fcm");
+        await FlutterPushedMessagingPlatform.confirmDelivered(token ?? "",
+            pushedMessage["messageId"], "Fcm", pushedMessage["mfTraceId"]);
         var lastMessageId =
             await methodChannel.invokeMethod<String>('getLastMessageId');
         if (lastMessageId != pushedMessage["messageId"]) {
@@ -355,8 +381,10 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
     //***********
     methodChannel.setMethodCallHandler(_handle);
     var token = await methodChannel.invokeMethod<String>('getToken');
-    var newToken =
-        await getNewToken(token ?? "", fcmToken: fbToken, hpkToken: hpkToken);
+    var ruStoreToken =
+        await methodChannel.invokeMethod<String?>('getRuStoreToken');
+    var newToken = await getNewToken(token ?? "",
+        fcmToken: fbToken, hpkToken: hpkToken, ruStoreToken: ruStoreToken);
     if (token != newToken && newToken != "") {
       token = newToken;
       await methodChannel.invokeMethod<bool>('setToken', {"token": token});
@@ -377,7 +405,6 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
     }
     FlutterPushedMessagingPlatform.pushToken = token;
     if (initialPush != null) {
-      print("Initial push");
       clickOnPush(initialPush!, "Hpk");
     }
     return true;

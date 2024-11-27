@@ -1,5 +1,7 @@
 package ru.pushed.flutter_pushed_messaging;
 
+import android.app.ActivityManager;
+import android.app.KeyguardManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.ComponentName;
@@ -18,10 +20,13 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.Observer;
 
 import org.json.JSONObject;
 
 import java.util.Calendar;
+import java.util.List;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
@@ -32,18 +37,23 @@ import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
+import ru.rustore.sdk.pushclient.RuStorePushClient;
 
 /** FlutterPushedMessagingPlugin */
 public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHandler, ActivityAware {
 
-  private MethodChannel channel;
+  public MethodChannel channel;
   private Context context;
   private static final String TAG = "PushedServicePlugin";
   private final int binderId = (int) (System.currentTimeMillis() / 1000);
   private Handler mainHandler;
+  private final LiveData<JSONObject> liveDataMessage =
+          MessageLiveData.getInstance();
+  private Observer<JSONObject> messageObserver;
   private boolean mShouldUnbind = false;
   private IBackgroundServiceBinder serviceBinder;
-  private ActivityPluginBinding  activityBinding=null;
+  public ActivityPluginBinding  activityBinding=null;
+  private String ruStoreToken=null;
   private SharedPreferences pref=null;
   private final ServiceConnection serviceConnection = new ServiceConnection() {
 
@@ -89,15 +99,56 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
     }
   };
 
+  static boolean isApplicationForeground(Context context) {
+    KeyguardManager keyguardManager =
+            (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
+
+    if (keyguardManager != null && keyguardManager.isKeyguardLocked()) {
+      return false;
+    }
+
+    ActivityManager activityManager =
+            (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+    if (activityManager == null) return false;
+
+    List<ActivityManager.RunningAppProcessInfo> appProcesses =
+            activityManager.getRunningAppProcesses();
+    if (appProcesses == null) return false;
+
+    final String packageName = context.getPackageName();
+    for (ActivityManager.RunningAppProcessInfo appProcess : appProcesses) {
+      if (appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+              && appProcess.processName.equals(packageName)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
+    Log.v(TAG, "Pushed plugin attached to engine");
     channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "flutter_pushed_messaging", JSONMethodCodec.INSTANCE);
     channel.setMethodCallHandler(this);
     this.context=flutterPluginBinding.getApplicationContext();
     pref=context.getSharedPreferences("pushed", Context.MODE_PRIVATE);
     mShouldUnbind = false;
     mainHandler = new Handler(context.getMainLooper());
+    try{
+      RuStorePushClient.INSTANCE.getToken().addOnSuccessListener((token) -> {
+      ruStoreToken=token;
+    });
+    } catch (Exception e){
+      Log.v(TAG,"RuStore inialization Error: "+e.getMessage());
+    }
+
+    messageObserver =
+            message -> {
+            channel.invokeMethod("onReceiveData", message);
+            };
+    liveDataMessage.observeForever(messageObserver);
+
   }
 
   @Override
@@ -149,6 +200,9 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
       String token = pref.getString("token","");
       result.success(token);
     }
+    else if (call.method.equals("getRuStoreToken")) {
+      result.success(ruStoreToken);
+    }
     else if (call.method.equals("getHandle")) {
       long handle = pref.getLong("backgroundHandle",0);
       result.success(handle);
@@ -184,6 +238,7 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
       binding.getApplicationContext().unbindService(serviceConnection);
       mShouldUnbind = false;
     }
+    liveDataMessage.removeObserver(messageObserver);
 
   }
   public void addLogEvent(String event) {
@@ -194,7 +249,10 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
 
   }
 
-  private void receiveData(JSONObject data) {
+  public void receiveData(JSONObject data) {
+
+
+
     HiddenLifecycleReference reference =
             (HiddenLifecycleReference) activityBinding.getLifecycle();
     String method=reference.getLifecycle().getCurrentState() == Lifecycle.State.RESUMED?"onReceiveData":"onReceiveDataBg";
@@ -245,6 +303,7 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
 
   @Override
   public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
+    Log.v(TAG, "Pushed plugin attached to activity");
     activityBinding=binding;
 
   }
@@ -256,11 +315,13 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
 
   @Override
   public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) {
+    Log.v(TAG, "Pushed plugin attached to activity");
     activityBinding=binding;
   }
 
   @Override
   public void onDetachedFromActivity() {
+    Log.v(TAG, "Pushed plugin detached to activity");
     if(mShouldUnbind){
       try {
         mShouldUnbind = false;

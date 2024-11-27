@@ -28,7 +28,10 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
       } catch (_) {}
       var token = (await methodChannel.invokeMethod<String>('getToken')) ?? "";
       confirmResult = await FlutterPushedMessagingPlatform.confirmDelivered(
-          token, call.arguments["messageId"], "Apns");
+          token,
+          call.arguments["messageId"],
+          "Apns",
+          call.arguments["mfTraceId"]);
       await methodChannel.invokeMethod<bool>(
           'setLog', {"event": "FL Confirm Done: $confirmResult"});
     }
@@ -69,7 +72,7 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
     await requestNotificationPermissions();
     for (var counter = 0; counter < 30; counter++) {
       if (apnsToken != null) break;
-      await Future.delayed(Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 100));
     }
     await methodChannel
         .invokeMethod<bool>('setLog', {"event": "FL ApnsToken: $apnsToken"});

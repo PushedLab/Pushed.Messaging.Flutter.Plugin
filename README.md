@@ -8,7 +8,7 @@ To learn more about Pushed Messaging, please visit the [Pushed website](https://
 
 ```yaml
 # add this line to your dependencies
-flutter_pushed_messaging: ^1.3.0
+flutter_pushed_messaging: ^1.4.0
 ```
 
 ```dart
@@ -90,6 +90,18 @@ dependencies {
 }
 ...
 apply plugin: 'com.huawei.agconnect' 
+```
+
+On Android, to support RuStore, you need to add the following to your AndroidManifest.xml
+
+```xml
+    <application>
+    ...
+        <meta-data
+            android:name="ru.rustore.sdk.pushclient.project_id"
+            android:value="Your RuStore project ID" />
+    ...
+    </application>
 ```
 
 ### Implementation

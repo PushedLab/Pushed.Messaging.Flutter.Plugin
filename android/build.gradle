@@ -15,6 +15,9 @@ buildscript {
 
 rootProject.allprojects {
     repositories {
+        maven {
+            url = uri("https://artifactory-external.vkpartner.ru/artifactory/maven")
+        }
         google()
         mavenCentral()
     }
@@ -36,4 +39,8 @@ android {
     defaultConfig {
         minSdkVersion 21
     }
+}
+
+dependencies {
+    implementation("ru.rustore.sdk:pushclient:6.3.0")
 }
