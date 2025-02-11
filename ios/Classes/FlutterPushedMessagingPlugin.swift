@@ -28,6 +28,7 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
   var isInited=false
   var messageHandler: ((UIBackgroundFetchResult) -> Void)?
   var clickHandler: (() -> Void)?
+  var apnsToken: String?
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
       addLog("Invoked: \(call.method)")
@@ -38,6 +39,8 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
         UserDefaults.standard.setValue((call.arguments as? [String: Any])?["token"] as? String ?? "", forKey: "pushedMessaging.clientToken")
         addLog("Set Token Done")
         result(true)
+    case "getApnsToken":
+        result(apnsToken)
     case "getToken":
         result(UserDefaults.standard.string(forKey: "pushedMessaging.clientToken") ?? "")
     case "getLog":
@@ -147,7 +150,8 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
 
   public func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
     addLog("Apns token: \(deviceToken.hexString)")
-    channel.invokeMethod("apnsToken", arguments: deviceToken.hexString)
+    apnsToken=deviceToken.hexString
+    channel.invokeMethod("apnsToken", arguments: apnsToken)
   }
 
   public func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {

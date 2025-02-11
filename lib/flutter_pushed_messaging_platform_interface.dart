@@ -60,23 +60,19 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
       String? fcmToken,
       String? hpkToken,
       String? ruStoreToken}) async {
-    var deviceSettings = [];
-    if (apnsToken != null)
-      deviceSettings.add({"deviceToken": apnsToken, "transportKind": "Apns"});
-    if (fcmToken != null)
-      deviceSettings.add({"deviceToken": fcmToken, "transportKind": "Fcm"});
-    if (hpkToken != null)
-      deviceSettings.add({"deviceToken": hpkToken, "transportKind": "Hpk"});
-    if (ruStoreToken != null)
-      deviceSettings
-          .add({"deviceToken": ruStoreToken, "transportKind": "RuStore"});
+    var deviceSettings = [
+      if (apnsToken != null)
+        {"deviceToken": apnsToken, "transportKind": "Apns"},
+      if (fcmToken != null) {"deviceToken": fcmToken, "transportKind": "Fcm"},
+      if (hpkToken != null) {"deviceToken": hpkToken, "transportKind": "Hpk"},
+      if (ruStoreToken != null)
+        {"deviceToken": ruStoreToken, "transportKind": "RuStore"}
+    ];
 
     final body = json.encode(<String, dynamic>{
       "clientToken": token,
       if (deviceSettings.isNotEmpty) "deviceSettings": deviceSettings
     });
-    print("Body: $body ");
-    print("RuStoreToken: $ruStoreToken");
 
     try {
       var response = await http
@@ -91,8 +87,7 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
     return (token);
   }
 
-  Future<bool> init(Function(Map<dynamic, dynamic>) backgroundMessageHandler,
-      [String title = "Pushed", String body = "The service active"]) {
+  Future<bool> init(Function(Map<dynamic, dynamic>) backgroundMessageHandler) {
     throw UnimplementedError('init() has not been implemented.');
   }
 

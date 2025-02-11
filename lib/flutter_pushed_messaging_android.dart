@@ -4,7 +4,6 @@ import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/cupertino.dart';
@@ -20,6 +19,7 @@ var active = false;
 StreamSubscription? subs;
 var connected = false;
 var currentStatus = ServiceStatus.disconnected;
+var lastConnected = 0;
 
 @pragma('vm:entry-point')
 Future<void> entrypoint(List<String> args) async {
@@ -30,6 +30,7 @@ Future<void> entrypoint(List<String> args) async {
   );
   await channel.invokeMethod<dynamic>("lock");
   addLog(channel, "Start entrypoint");
+  final bool isService = args.length < 3;
   await setNewStatus(channel, currentStatus);
   final int rawHandle = int.parse(args[0]);
   final String token = args[1];
@@ -50,17 +51,30 @@ Future<void> entrypoint(List<String> args) async {
       connected = true;
     }
     lastConnectivity = result;
-    connect(token, channel, onMessage);
+    connect(token, channel, onMessage, isService);
   });
 
   channel.setMethodCallHandler((call) async {
+    await channel.invokeMethod<dynamic>("lock");
     if (call.arguments["method"] == "reconnect" && active) {
-      await channel.invokeMethod<dynamic>("lock");
-      await addLog(channel, "Reconnect");
+      if (lastConnected != 0 &&
+          DateTime.now().millisecondsSinceEpoch - lastConnected > 300000) {
+        await addLog(channel, "Reconnect");
+        await setNewStatus(channel, currentStatus);
+        webChannel?.sink.close();
+      } else {
+        await addLog(channel, "Reconnect postponed");
+        await setNewStatus(channel,
+            connected ? ServiceStatus.active : ServiceStatus.disconnected);
+      }
+    }
+    if (call.arguments["method"] == "forceReconnect" && active) {
+      await addLog(channel, "Force reconnect");
       await setNewStatus(channel, currentStatus);
       webChannel?.sink.close();
     }
   });
+
   await Future.delayed(const Duration(seconds: 5));
   await channel.invokeMethod<dynamic>("unlock");
 }
@@ -75,21 +89,21 @@ Future<void> setNewStatus(
 
 @pragma('vm:entry-point')
 Future<void> addLog(MethodChannel channel, String event) async {
-  if (kReleaseMode) return;
   var fullEvent = "${DateTime.now()}: $event";
   print(fullEvent);
   await channel.invokeMethod<dynamic>("log", {"event": event});
 }
 
 @pragma('vm:entry-point')
-Future<void> connect(
-    String token, MethodChannel channel, Function? onMessage) async {
+Future<void> connect(String token, MethodChannel channel, Function? onMessage,
+    bool isService) async {
   if (!connected) {
     await channel.invokeMethod<dynamic>("unlock");
     return;
   }
   if (active) return;
   await addLog(channel, "Connecting");
+  lastConnected = DateTime.now().millisecondsSinceEpoch;
   active = true;
   try {
     await subs?.cancel();
@@ -123,7 +137,9 @@ Future<void> connect(
             payload["data"] = data;
           } catch (_) {}
           Map<String, dynamic> data = {"type": "message", "message": payload};
-          var res = await channel.invokeMethod<dynamic>("data", data) ?? false;
+          var res = false;
+          if (isService)
+            res = await channel.invokeMethod<dynamic>("data", data) ?? false;
           if (!res && onMessage != null) await onMessage(payload);
         }
       }
@@ -135,7 +151,7 @@ Future<void> connect(
       active = false;
       await setNewStatus(channel, ServiceStatus.disconnected);
       await Future.delayed(const Duration(seconds: 1));
-      connect(token, channel, onMessage);
+      connect(token, channel, onMessage, isService);
     });
   } catch (e) {
     await channel.invokeMethod<dynamic>("lock");
@@ -144,7 +160,12 @@ Future<void> connect(
     await subs?.cancel();
     active = false;
     await Future.delayed(const Duration(seconds: 1));
-    connect(token, channel, onMessage);
+    if (isService) {
+      connect(token, channel, onMessage, isService);
+    } else {
+      await channel.invokeMethod<dynamic>("error");
+      await channel.invokeMethod<dynamic>("unlock");
+    }
   }
 }
 
@@ -281,7 +302,7 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
   Future<void> reconnect() async {
     if (FlutterPushedMessagingPlatform.status != ServiceStatus.notActive) {
       await methodChannel
-          .invokeMethod<dynamic>('data', {"method": "reconnect"});
+          .invokeMethod<dynamic>('data', {"method": "forceReconnect"});
     }
   }
 
@@ -291,8 +312,9 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
   }
 
   @override
-  Future<bool> init(Function(Map<dynamic, dynamic>) backgroundMessageHandler,
-      [String title = "Pushed", String body = "The service active"]) async {
+  Future<bool> init(
+      Function(Map<dynamic, dynamic>) backgroundMessageHandler) async {
+    if (FlutterPushedMessagingPlatform.pushToken != null) return true;
     //hpk
     String? hpkToken;
     try {
@@ -355,34 +377,35 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
       await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
       fbToken = await (FirebaseMessaging.instance.getToken());
+      if (fbToken != null) {
+        await addLog(methodChannel, 'firebaseDeviceToken: $fbToken');
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+          var pushedMessage =
+              AndroidFlutterPushedMessaging.convertMessage(message.toMap());
+          await addLog(methodChannel, 'Firebase onMessage: $pushedMessage');
+          var token = await methodChannel.invokeMethod<String>('getToken');
+          await FlutterPushedMessagingPlatform.confirmDelivered(token ?? "",
+              pushedMessage["messageId"], "Fcm", pushedMessage["mfTraceId"]);
+          var lastMessageId =
+              await methodChannel.invokeMethod<String>('getLastMessageId');
+          if (lastMessageId != pushedMessage["messageId"]) {
+            await addLog(methodChannel, "Fcm processing message");
+            FlutterPushedMessagingPlatform.messageController.sink
+                .add(pushedMessage);
+            await methodChannel.invokeMethod<bool>('setLastMessageId',
+                {"lastMessageId": pushedMessage["messageId"]});
+          }
+        });
+      }
     } catch (_) {
       await addLog(methodChannel, "Cant initialize Fcm");
-    }
-    if (fbToken != null) {
-      await addLog(methodChannel, 'firebaseDeviceToken: $fbToken');
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-        var pushedMessage =
-            AndroidFlutterPushedMessaging.convertMessage(message.toMap());
-        await addLog(methodChannel, 'Firebase onMessage: $pushedMessage');
-        var token = await methodChannel.invokeMethod<String>('getToken');
-        await FlutterPushedMessagingPlatform.confirmDelivered(token ?? "",
-            pushedMessage["messageId"], "Fcm", pushedMessage["mfTraceId"]);
-        var lastMessageId =
-            await methodChannel.invokeMethod<String>('getLastMessageId');
-        if (lastMessageId != pushedMessage["messageId"]) {
-          await addLog(methodChannel, "Fcm processing message");
-          FlutterPushedMessagingPlatform.messageController.sink
-              .add(pushedMessage);
-          await methodChannel.invokeMethod<bool>('setLastMessageId',
-              {"lastMessageId": pushedMessage["messageId"]});
-        }
-      });
     }
     //***********
     methodChannel.setMethodCallHandler(_handle);
     var token = await methodChannel.invokeMethod<String>('getToken');
     var ruStoreToken =
         await methodChannel.invokeMethod<String?>('getRuStoreToken');
+    await addLog(methodChannel, 'RuStore token: $ruStoreToken');
     var newToken = await getNewToken(token ?? "",
         fcmToken: fbToken, hpkToken: hpkToken, ruStoreToken: ruStoreToken);
     if (token != newToken && newToken != "") {
@@ -393,11 +416,8 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
     messageCallback = backgroundMessageHandler;
     final CallbackHandle? handle =
         PluginUtilities.getCallbackHandle(backgroundMessageHandler);
-    final result = await methodChannel.invokeMethod<dynamic>('init', {
-          "backgroundHandle": handle?.toRawHandle(),
-          "title": title,
-          "body": body
-        }) ??
+    final result = await methodChannel.invokeMethod<dynamic>(
+            'init', {"backgroundHandle": handle?.toRawHandle()}) ??
         false;
     if (!result) {
       await methodChannel.invokeMethod<bool>('setToken', {"token": ""});

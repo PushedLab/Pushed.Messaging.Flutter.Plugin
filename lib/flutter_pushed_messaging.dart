@@ -16,11 +16,9 @@ class FlutterPushedMessaging {
 
   ///Init and start background service
   static Future<bool> init(
-      Function(Map<dynamic, dynamic>) backgroundMessageHandler,
-      [String title = "Pushed",
-      String body = "The service active"]) {
+      Function(Map<dynamic, dynamic>) backgroundMessageHandler) {
     return FlutterPushedMessagingPlatform.instance
-        .init(backgroundMessageHandler, title, body);
+        .init(backgroundMessageHandler);
   }
 
   ///Returns a Stream that is called when changing service status

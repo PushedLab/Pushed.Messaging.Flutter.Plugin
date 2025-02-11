@@ -1,28 +1,30 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="ru.pushed.flutter_pushed_messaging">
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
-    <uses-permission
-        android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING"
-        android:minSdkVersion="34" />
 
     <application>
         <service
             android:enabled="true"
             android:exported="true"
             android:name=".BackgroundService"
-            android:stopWithTask="false"
-            android:foregroundServiceType="remoteMessaging"
-            />
+            android:stopWithTask="false" />
         <service
             android:name=".RuStorePushService"
             android:exported="true">
             <intent-filter>
                 <action android:name="ru.rustore.sdk.pushclient.MESSAGING_EVENT" />
             </intent-filter>
+        </service>
+        <service
+            android:name=".PushedJobService"
+            android:enabled="true"
+            android:exported="true"
+            android:stopWithTask="false"
+            android:permission="android.permission.BIND_JOB_SERVICE">
         </service>
         <receiver
             android:name=".WatchdogReceiver"

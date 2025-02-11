@@ -8,7 +8,7 @@ To learn more about Pushed Messaging, please visit the [Pushed website](https://
 
 ```yaml
 # add this line to your dependencies
-flutter_pushed_messaging: ^1.4.0
+flutter_pushed_messaging: ^1.5.0
 ```
 
 ```dart
@@ -113,7 +113,7 @@ import 'package:flutter_pushed_messaging/flutter_pushed_messaging.dart';
 //Messages can be handled via the backgroundMessage handler. 
 //When received, an isolate is spawned allowing you to handle messages even when your application is not running.
 @pragma('vm:entry-point')
-Future<void> backgroundMessage(Map<String,dynamic> message) async {
+Future<void> backgroundMessage(Map<dynamic,dynamic> message) async {
 	print("Handling a background message: $message");
 }
 

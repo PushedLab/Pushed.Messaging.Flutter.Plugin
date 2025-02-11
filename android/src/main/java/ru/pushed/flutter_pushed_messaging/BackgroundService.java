@@ -1,9 +1,6 @@
 package ru.pushed.flutter_pushed_messaging;
 
-import static android.content.pm.ServiceInfo.*;
-import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING;
 
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -17,12 +14,10 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.app.NotificationCompat;
 
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,9 +37,9 @@ public class BackgroundService extends Service implements MethodChannel.MethodCa
     private FlutterEngine backgroundEngine;
     private DartExecutor.DartEntrypoint dartEntrypoint;
     private SharedPreferences pref=null;
-    private boolean foreground=false;
     final Map<Integer, IBackgroundService> listeners = new HashMap<>();
     public static volatile PowerManager.WakeLock lockStatic = null;
+    public static boolean active=false;
     private final IBackgroundServiceBinder.Stub binder = new IBackgroundServiceBinder.Stub() {
 
         @Override
@@ -75,6 +70,12 @@ public class BackgroundService extends Service implements MethodChannel.MethodCa
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
+        try{
+            receiveData(new JSONObject("{\"method\":\"forceReconnect\"}"));
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
         return binder;
     }
 
@@ -93,36 +94,13 @@ public class BackgroundService extends Service implements MethodChannel.MethodCa
     public void onCreate() {
         super.onCreate();
         pref=getSharedPreferences("pushed", Context.MODE_PRIVATE);
-
         mainHandler = new Handler(Looper.getMainLooper());
-        foreground=pref.getBoolean("foreground",false);
-        if(foreground) {
-
-            String packageName = getApplicationContext().getPackageName();
-            Intent i = getPackageManager().getLaunchIntentForPackage(packageName);
-
-            int flags = PendingIntent.FLAG_CANCEL_CURRENT;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                flags |= PendingIntent.FLAG_MUTABLE;
-            }
-            PendingIntent pi = PendingIntent.getActivity(BackgroundService.this, 11, i, flags);
-            NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(this, "pushed")
-                    .setSmallIcon(R.drawable.ic_bg_service_small)
-                    .setAutoCancel(true)
-                    .setOngoing(false)
-                    .setContentTitle(pref.getString("title","Pushed"))
-                    .setContentText(pref.getString("body","The service is active"))
-                    .setCategory("")
-                    .setVisibility(NotificationCompat.VISIBILITY_SECRET)
-                    .setContentIntent(pi);
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                startForeground(101, mBuilder.build());
-            } else startForeground(101, mBuilder.build(), FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING);
-
-        }
     }
     @Override
     public void onDestroy() {
+        active=false;
+        WatchdogReceiver.enqueue(this,5000);
+        FlutterPushedMessagingPlugin.addLogEvent(pref,"Service onDestroy");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE);
         }
@@ -137,12 +115,20 @@ public class BackgroundService extends Service implements MethodChannel.MethodCa
         lockStatic=null;
         super.onDestroy();
     }
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        active=false;
+        WatchdogReceiver.enqueue(this,5000);
+        FlutterPushedMessagingPlugin.addLogEvent(pref,"Task Removed");
+    }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if(WatchdogReceiver.numPlaned<=0) WatchdogReceiver.enqueue(this);
+        FlutterPushedMessagingPlugin.addLogEvent(pref,"Start service");
+        WatchdogReceiver.enqueue(this);
+        active=true;
         if (backgroundEngine != null && backgroundEngine.getDartExecutor().isExecutingDart()) {
-            Log.v(TAG, "!Service already running, using existing service!");
+            Log.v(TAG, "Service already running, using existing service");
             try{
                 receiveData(new JSONObject("{\"method\":\"reconnect\"}"));}
             catch (Exception e){
@@ -152,7 +138,7 @@ public class BackgroundService extends Service implements MethodChannel.MethodCa
         }
         Log.v(TAG, "Starting flutter engine for background service");
         backgroundEngine = new FlutterEngine(this);
-        backgroundEngine.getServiceControlSurface().attachToService(BackgroundService.this, null, foreground);
+        backgroundEngine.getServiceControlSurface().attachToService(BackgroundService.this, null, false);
         if(lockStatic==null) {
             PowerManager mgr = (PowerManager) getApplicationContext()
                     .getSystemService(Context.POWER_SERVICE);
@@ -202,24 +188,28 @@ public class BackgroundService extends Service implements MethodChannel.MethodCa
             }
         }
         else if (method.equalsIgnoreCase("lock")) {
-            if(lockStatic!=null && !lockStatic.isHeld())
+            if(lockStatic!=null && !lockStatic.isHeld()){
                 lockStatic.acquire(60*1000L);
+                FlutterPushedMessagingPlugin.addLogEvent(pref,"Lock");
+            }
+
             result.success(true);
         }
         else if (method.equalsIgnoreCase("unlock")) {
             if(lockStatic!=null && lockStatic.isHeld()) {
+                FlutterPushedMessagingPlugin.addLogEvent(pref,"Unlock");
                 lockStatic.release();
             }
             result.success(true);
         }
         else if (method.equalsIgnoreCase("log")) {
-         String event=(String)call.argument("event");
-         addLogEvent(event);
+         String event= call.argument("event");
+         FlutterPushedMessagingPlugin.addLogEvent(pref,event);
          result.success(true);
         }
         else if (method.equalsIgnoreCase("setLastMessageId")) {
 	 try {
-           pref.edit().putString("lastMessageId", (String)call.argument("lastMessageId")).apply();
+           pref.edit().putString("lastMessageId", call.argument("lastMessageId")).apply();
            result.success(true);
          }
          catch (Exception e)
@@ -236,13 +226,7 @@ public class BackgroundService extends Service implements MethodChannel.MethodCa
         }
 
     }
-    public void addLogEvent(String event) {
-        String date= Calendar.getInstance().getTime().toString();
-        String fEvent=date+": "+event+"\n";
-        String log=pref.getString("log","");
-        pref.edit().putString("log", log+fEvent).apply();
 
-    }
 
     public void receiveData(JSONObject data) {
         if (methodChannel != null) {

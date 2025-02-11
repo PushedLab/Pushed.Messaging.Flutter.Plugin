@@ -2,8 +2,6 @@ package ru.pushed.flutter_pushed_messaging;
 
 import android.app.ActivityManager;
 import android.app.KeyguardManager;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -18,7 +16,6 @@ import android.provider.Settings;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Observer;
@@ -27,6 +24,7 @@ import org.json.JSONObject;
 
 import java.util.Calendar;
 import java.util.List;
+import java.util.Objects;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
@@ -136,17 +134,13 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
     mShouldUnbind = false;
     mainHandler = new Handler(context.getMainLooper());
     try{
-      RuStorePushClient.INSTANCE.getToken().addOnSuccessListener((token) -> {
-      ruStoreToken=token;
-    });
+      RuStorePushClient.INSTANCE.getToken().addOnSuccessListener((token) -> ruStoreToken=token);
     } catch (Exception e){
-      Log.v(TAG,"RuStore inialization Error: "+e.getMessage());
+      Log.v(TAG,"RuStore initialization Error: "+e.getMessage());
     }
 
     messageObserver =
-            message -> {
-            channel.invokeMethod("onReceiveData", message);
-            };
+            message -> channel.invokeMethod("onReceiveData", message);
     liveDataMessage.observeForever(messageObserver);
 
   }
@@ -156,21 +150,14 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
     JSONObject arg = (JSONObject) call.arguments;
     if (call.method.equals("init")) {
       long backgroundHandle;
-      String title,body;
       try {
         backgroundHandle=arg.getLong("backgroundHandle");
-        title=arg.getString("title");
-        body=arg.getString("body");
       }
       catch (Exception e)
       {
         backgroundHandle=0;
-        title="Pushed";
-        body="The service active";
       }
       pref.edit().putLong("backgroundHandle", backgroundHandle).apply();
-      pref.edit().putString("title", title).apply();
-      pref.edit().putString("body", body).apply();
       result.success(init());
     } else if (call.method.equals("setToken")) {
       try {
@@ -208,8 +195,8 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
       result.success(handle);
     }
     else if (call.method.equalsIgnoreCase("log")) {
-      String event=(String)call.argument("event");
-      addLogEvent(event);
+      String event= call.argument("event");
+      addLogEvent(pref,event);
       result.success(true);
     }
     else if (call.method.equalsIgnoreCase("getlog")) {
@@ -221,7 +208,7 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
         serviceBinder.invoke(call.arguments.toString());
         result.success(true);
       } catch (Exception ex) {
-        Log.v(TAG, ex.getMessage());
+        Log.v(TAG, Objects.requireNonNull(ex.getMessage()));
         result.error("Service invoke error", ex.getMessage(), ex);
       }
     }
@@ -241,12 +228,15 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
     liveDataMessage.removeObserver(messageObserver);
 
   }
-  public void addLogEvent(String event) {
-     String date= Calendar.getInstance().getTime().toString();
-     String fEvent=date+": "+event+"\n";
-     String log=pref.getString("log","");
-     pref.edit().putString("log", log+fEvent).apply();
-
+  public static void addLogEvent(SharedPreferences preferences, String event) {
+    if (BuildConfig.DEBUG) {
+      if(preferences!=null) {
+        String date = Calendar.getInstance().getTime().toString();
+        String fEvent = date + ": " + event + "\n";
+        String log = preferences.getString("log", "");
+        preferences.edit().putString("log", log + fEvent).apply();
+      }
+    }
   }
 
   public void receiveData(JSONObject data) {
@@ -262,14 +252,10 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
       }
     });
   }
-  private void start(boolean isForeground) {
+  private void start() {
     Intent intent = new Intent(context, BackgroundService.class);
     intent.putExtra("binder_id", binderId);
-    if (isForeground) {
-      ContextCompat.startForegroundService(context, intent);
-    } else {
-      context.startService(intent);
-    }
+    context.startService(intent);
     mShouldUnbind = context.bindService(intent, serviceConnection,Context.BIND_AUTO_CREATE);
   }
 
@@ -286,17 +272,12 @@ public class FlutterPushedMessagingPlugin implements FlutterPlugin, MethodCallHa
           activityBinding.getActivity().startActivity(intent);
         }
     }
-    boolean foreground=false;
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-      foreground=true;
-      NotificationChannel channel = new NotificationChannel("pushed","Pushed", NotificationManager.IMPORTANCE_NONE);
-      NotificationManager manager = context.getSystemService(NotificationManager.class);
-      channel.setShowBadge(false);
-      manager.createNotificationChannel(channel);
-    }
-    start(foreground);
-    pref.edit().putBoolean("foreground",foreground).apply();
+    start();
+    PushedJobService.startMyJob(context,3000,5000,1);
     pref.edit().putBoolean("first_run",false).apply();
+    pref.edit().putBoolean("restarted",false).apply();
+    Log.v(TAG, "Log:\n"+pref.getString("log",""));
+
 
     return true;
   }

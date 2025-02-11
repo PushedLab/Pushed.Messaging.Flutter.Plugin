@@ -44,7 +44,13 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
         await messageCallback!(call.arguments);
         break;
       case "apnsToken":
-        apnsToken ??= call.arguments;
+        if (apnsToken != call.arguments) {
+          apnsToken = call.arguments;
+          if (FlutterPushedMessaging.token != null) {
+            await getNewToken(FlutterPushedMessaging.token!,
+                apnsToken: apnsToken);
+          }
+        }
         break;
       default:
     }
@@ -62,12 +68,11 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
   }
 
   @override
-  Future<bool> init(Function(Map<dynamic, dynamic>) backgroundMessageHandler,
-      [String title = "Pushed", String body = "The service active"]) async {
-    apnsToken = null;
+  Future<bool> init(
+      Function(Map<dynamic, dynamic>) backgroundMessageHandler) async {
     messageCallback = backgroundMessageHandler;
     methodChannel.setMethodCallHandler(_handle);
-
+    apnsToken = await methodChannel.invokeMethod<String>('getApnsToken');
     await methodChannel.invokeMethod('configure');
     await requestNotificationPermissions();
     for (var counter = 0; counter < 30; counter++) {
@@ -111,11 +116,6 @@ class IosNotificationSettings {
     this.alert = true,
     this.badge = true,
   });
-
-  IosNotificationSettings._fromMap(Map<String, bool> settings)
-      : sound = settings['sound'],
-        alert = settings['alert'],
-        badge = settings['badge'];
 
   final bool? sound;
   final bool? alert;

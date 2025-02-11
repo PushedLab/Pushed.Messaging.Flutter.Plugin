@@ -1,3 +1,7 @@
+## 1.5.0
+
+* The principle of operation of the plugin in the backround has been changed.
+
 ## 1.4.0
 
 * Added RuStore support.
