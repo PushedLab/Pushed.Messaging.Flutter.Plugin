@@ -63,8 +63,10 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
     var deviceSettings = [
       if (apnsToken != null && apnsToken.isNotEmpty)
         {"deviceToken": apnsToken, "transportKind": "Apns"},
-      if (fcmToken != null && fcmToken.isNotEmpty) {"deviceToken": fcmToken, "transportKind": "Fcm"},
-      if (hpkToken != null && hpkToken.isNotEmpty ) {"deviceToken": hpkToken, "transportKind": "Hpk"},
+      if (fcmToken != null && fcmToken.isNotEmpty)
+        {"deviceToken": fcmToken, "transportKind": "Fcm"},
+      if (hpkToken != null && hpkToken.isNotEmpty)
+        {"deviceToken": hpkToken, "transportKind": "Hpk"},
       if (ruStoreToken != null && ruStoreToken.isNotEmpty)
         {"deviceToken": ruStoreToken, "transportKind": "RuStore"}
     ];
