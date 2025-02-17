@@ -61,11 +61,11 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
       String? hpkToken,
       String? ruStoreToken}) async {
     var deviceSettings = [
-      if (apnsToken != null)
+      if (apnsToken != null && apnsToken.isNotEmpty)
         {"deviceToken": apnsToken, "transportKind": "Apns"},
-      if (fcmToken != null) {"deviceToken": fcmToken, "transportKind": "Fcm"},
-      if (hpkToken != null) {"deviceToken": hpkToken, "transportKind": "Hpk"},
-      if (ruStoreToken != null)
+      if (fcmToken != null && fcmToken.isNotEmpty) {"deviceToken": fcmToken, "transportKind": "Fcm"},
+      if (hpkToken != null && hpkToken.isNotEmpty ) {"deviceToken": hpkToken, "transportKind": "Hpk"},
+      if (ruStoreToken != null && ruStoreToken.isNotEmpty)
         {"deviceToken": ruStoreToken, "transportKind": "RuStore"}
     ];
 

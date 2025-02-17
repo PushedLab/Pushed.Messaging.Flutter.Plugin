@@ -1,3 +1,7 @@
+## 1.5.1
+
+* Fixed a bug that occurs on some devices when working with Hpk.
+
 ## 1.5.0
 
 * The principle of operation of the plugin in the backround has been changed.
