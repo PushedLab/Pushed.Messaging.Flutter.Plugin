@@ -1,39 +1,23 @@
-import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_pushed_messaging/flutter_pushed_messaging.dart';
 
+import 'flutter_pushed_messaging.dart';
 import 'flutter_pushed_messaging_platform_interface.dart';
 
-/// An implementation of [FlutterPushedMessagingPlatform] that uses method channels.
 class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
-  String? apnsToken;
-  Function(Map<dynamic, dynamic>)? messageCallback;
-
   /// The method channel used to interact with the native platform.
   @visibleForTesting
   final methodChannel = const MethodChannel('flutter_pushed_messaging');
+  Function(Map<dynamic, dynamic>)? messageCallback;
 
   Future<dynamic> _handle(MethodCall call) async {
-    var confirmResult = false;
-    await methodChannel.invokeMethod<bool>(
-        'setLog', {"event": "FL Handled method: ${call.method}"});
-
     if (call.method.startsWith("onReceiveData")) {
       try {
         var data = json.decode(call.arguments["data"]);
         call.arguments["data"] = data;
       } catch (_) {}
-      var token = (await methodChannel.invokeMethod<String>('getToken')) ?? "";
-      confirmResult = await FlutterPushedMessagingPlatform.confirmDelivered(
-          token,
-          call.arguments["messageId"],
-          "Apns",
-          call.arguments["mfTraceId"]);
-      await methodChannel.invokeMethod<bool>(
-          'setLog', {"event": "FL Confirm Done: $confirmResult"});
     }
     switch (call.method) {
       case "onReceiveData":
@@ -41,24 +25,11 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
             .add(call.arguments);
         break;
       case "onReceiveDataBg":
-        await messageCallback!(call.arguments);
-        break;
-      case "apnsToken":
-        if (apnsToken != call.arguments) {
-          apnsToken = call.arguments;
-          if (FlutterPushedMessaging.token != null) {
-            await getNewToken(FlutterPushedMessaging.token!,
-                apnsToken: apnsToken);
-          }
+        if (messageCallback != null) {
+          await messageCallback!(call.arguments);
         }
         break;
       default:
-    }
-    if (call.method.startsWith("onReceiveData")) {
-      await methodChannel.invokeMethod("messageDone", {
-        "confirmed": confirmResult,
-        "isclick": call.arguments["buttonId"] != null
-      });
     }
   }
 
@@ -68,63 +39,31 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
   }
 
   @override
-  Future<bool> init(
-      Function(Map<dynamic, dynamic>) backgroundMessageHandler) async {
+  Future<bool> init(Function(Map<dynamic, dynamic>)? backgroundMessageHandler,
+      [String? notificationChannel = "messages",
+      bool loggerEnabled = false,
+      bool askPermissions = true,
+      bool serverLoggerEnabled = false]) async {
     messageCallback = backgroundMessageHandler;
     methodChannel.setMethodCallHandler(_handle);
-    apnsToken = await methodChannel.invokeMethod<String>('getApnsToken');
-    await methodChannel.invokeMethod('configure');
-    await requestNotificationPermissions();
-    for (var counter = 0; counter < 30; counter++) {
-      if (apnsToken != null) break;
-      await Future.delayed(const Duration(milliseconds: 100));
-    }
-    await methodChannel
-        .invokeMethod<bool>('setLog', {"event": "FL ApnsToken: $apnsToken"});
-    if (apnsToken != null) {
-      var token = await methodChannel.invokeMethod<String>('getToken');
-      var newToken = await getNewToken(token ?? "", apnsToken: apnsToken);
-
-      if (token != newToken && newToken != "") {
-        token = newToken;
-        await methodChannel.invokeMethod<bool>('setToken', {"token": token});
-      }
-      if (token != "") {
-        FlutterPushedMessagingPlatform.pushToken = token;
-        FlutterPushedMessagingPlatform.status = ServiceStatus.active;
+    var result = await methodChannel.invokeMethod<String>(
+        'init', {"log": loggerEnabled, "serverlog": loggerEnabled});
+    if (result != "") {
+      if (askPermissions)
         await methodChannel
-            .invokeMethod<bool>('setLog', {"event": "FL Init Success"});
-        return true;
-      }
+            .invokeMethod<bool>('requestNotificationPermissions');
+      FlutterPushedMessagingPlatform.pushToken = result;
+      FlutterPushedMessagingPlatform.status = ServiceStatus.active;
+      return true;
     }
-    await methodChannel.invokeMethod<bool>('setLog', {"event": "FL Init Fail"});
     return false;
   }
 
-  Future<bool> requestNotificationPermissions(
-      [IosNotificationSettings iosSettings =
-          const IosNotificationSettings()]) async {
-    final bool? result = await methodChannel.invokeMethod<bool>(
-        'requestNotificationPermissions', iosSettings.toMap());
-    return result ?? false;
-  }
-}
-
-class IosNotificationSettings {
-  const IosNotificationSettings({
-    this.sound = true,
-    this.alert = true,
-    this.badge = true,
-  });
-
-  final bool? sound;
-  final bool? alert;
-  final bool? badge;
-
-  Map<String, dynamic> toMap() {
-    return <String, bool?>{'sound': sound, 'alert': alert, 'badge': badge};
-  }
-
   @override
-  String toString() => 'PushNotificationSettings ${toMap()}';
+  Future<void> askPermissions(
+      [bool askNotificationPermission = true,
+      bool askBackgroundPermission = true]) async {
+    if (askNotificationPermission)
+      await methodChannel.invokeMethod<bool>('requestNotificationPermissions');
+  }
 }

@@ -1,3 +1,9 @@
+## 1.6.0
+
+* Added the ability to display notifications.
+* Added the ability to manage permission requests.
+* Removed dependencies on some third-party plugins.
+
 ## 1.5.1
 
 * Fixed a bug that occurs on some devices when working with Hpk.

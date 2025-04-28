@@ -7,63 +7,95 @@ func getFlutterError(_ error: Error) -> FlutterError {
 }
 
 public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotificationCenterDelegate {
+    
     internal init(channel: FlutterMethodChannel) {
         self.channel = channel
     }
 
-  public static func register(with registrar: FlutterPluginRegistrar) {
-    let log=UserDefaults.standard.string(forKey: "pushedMessaging.pushedLog") ?? ""
-    print("Log: \(log)")
-    let channel = FlutterMethodChannel(name: "flutter_pushed_messaging", binaryMessenger: registrar.messenger())
-    let instance = FlutterPushedMessagingPlugin(channel: channel)
-    instance.addLog("Plugin Created")
-    registrar.addApplicationDelegate(instance)
-    registrar.addMethodCallDelegate(instance, channel: channel)
-  }
+    public static func register(with registrar: FlutterPluginRegistrar) {
+        let channel = FlutterMethodChannel(name: "flutter_pushed_messaging", binaryMessenger: registrar.messenger())
+        let instance = FlutterPushedMessagingPlugin(channel: channel)
+        registrar.addApplicationDelegate(instance)
+        registrar.addMethodCallDelegate(instance, channel: channel)
+    }
     
-  let channel: FlutterMethodChannel
-  var lastNotification: [AnyHashable: Any]?
-  var initNotification: [AnyHashable: Any]?
-  var isBackground = true
-  var isInited=false
-  var messageHandler: ((UIBackgroundFetchResult) -> Void)?
-  var clickHandler: (() -> Void)?
-  var apnsToken: String?
-
-  public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-      addLog("Invoked: \(call.method)")
-    switch call.method {
-    case "requestNotificationPermissions":
-        requestNotificationPermissions(call, result: result)
-    case "setToken":
-        UserDefaults.standard.setValue((call.arguments as? [String: Any])?["token"] as? String ?? "", forKey: "pushedMessaging.clientToken")
-        addLog("Set Token Done")
-        result(true)
-    case "getApnsToken":
-        result(apnsToken)
-    case "getToken":
-        result(UserDefaults.standard.string(forKey: "pushedMessaging.clientToken") ?? "")
-    case "getLog":
-        result(UserDefaults.standard.string(forKey: "pushedMessaging.pushedLog") ?? "")
-    case "setLog":
-        addLog((call.arguments as? [String: Any])?["event"] as? String ?? "")
-        result(true)
-    case "messageDone":
-        addLog("Confirtmed: \((call.arguments as? [String: Any])?["confirmed"] as? Bool ?? false)")
-        var isClick=(call.arguments as? [String: Any])?["isclick"] as? Bool ?? false
-        if(messageHandler != nil && !isClick){
-            addLog("Free Handler")
-            messageHandler!(.noData)
-            messageHandler=nil
+    private func addLog(_ event: String){
+        print("\(Date()): \(event)")
+        if(UserDefaults.standard.bool(forKey: "pushedMessaging.logEnabled")){
+            let log=UserDefaults.standard.string(forKey: "pushedMessaging.pushedLog") ?? ""
+            UserDefaults.standard.set(log+"\(Date()): \(event)\n", forKey: "pushedMessaging.pushedLog")
         }
-        if(clickHandler != nil && isClick){
-            addLog("Free ClickHandler")
-            clickHandler!()
-            clickHandler=nil
-        }
+    }
 
-        result(lastNotification)
-    case "configure":
+    var apnsToken: String?
+    var pushedToken: String?
+    let channel: FlutterMethodChannel
+    var initNotification: [AnyHashable: Any]?
+    var isBackground = true
+    var isInited=false
+ 
+
+
+    public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        switch call.method {
+            case "init":
+                UserDefaults.standard.set((call.arguments as? [String: Any])?["log"] as? Bool ?? false,forKey: "pushedMessaging.logEnabled")
+                UserDefaults.standard.set((call.arguments as? [String: Any])?["serverlog"] as? Bool ?? false,forKey: "pushedMessaging.serverlogEnabled")
+                initialize(result: result)
+            case "requestNotificationPermissions":
+                requestNotificationPermissions(result: result)
+            case "getToken":
+                result(getSecToken() ?? "")
+            case "getLog":
+                result(UserDefaults.standard.string(forKey: "pushedMessaging.pushedLog") ?? "")
+            case "setLog":
+                addLog((call.arguments as? [String: Any])?["event"] as? String ?? "")
+                result(true)
+            default:
+                result(FlutterMethodNotImplemented)
+        }
+    }
+    
+    func requestNotificationPermissions(result: @escaping FlutterResult) {
+        
+        let alerts = UserDefaults.standard.bool(forKey: "pushedMessaging.alertEnabled")
+        let serverLog = UserDefaults.standard.bool(forKey: "pushedMessaging.serverlogEnabled")
+        let center = UNUserNotificationCenter.current()
+        assert(center.delegate != nil)
+        var options = [UNAuthorizationOptions]()
+        options.append(.sound)
+        options.append(.badge)
+        options.append(.alert)
+
+        let optionsUnion = UNAuthorizationOptions(options)
+        center.requestAuthorization(options: optionsUnion) { (granted, error) in
+            if let error = error {
+                result(getFlutterError(error))
+                return
+            }
+            if(granted != alerts){
+                UserDefaults.standard.set(granted,forKey: "pushedMessaging.alertEnabled")
+                self.refreshToken(result: nil,alerts: granted)
+                if(serverLog){
+                    if(self.pushedToken==nil){
+                        self.pushedToken=self.getSecToken()
+                    }
+                    if(granted){
+                        self.addServerLog(message: "The user has allowed notification messages", properties: ["ClientToken" : self.pushedToken ?? ""])
+
+                    }
+                    else{
+                        self.addServerLog(message: "The user rejected the notification messages", properties: ["ClientToken" : self.pushedToken ?? ""])
+                    }
+
+                }
+            }
+            result(granted)
+        }
+        addLog("Request Permission DONE")
+    }
+
+    func initialize(result: @escaping FlutterResult) {
         UIApplication.shared.registerForRemoteNotifications()
         if(initNotification != nil) {
             addLog("Send initial Message")
@@ -76,125 +108,308 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
         }
         isInited=true
         addLog("Configure Done")
-        result(nil)
-    default:
-        assertionFailure(call.method)
-        result(FlutterMethodNotImplemented)
-    }
-  }
-    
-  func requestNotificationPermissions(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-
-    let center = UNUserNotificationCenter.current()
-    //let application = UIApplication.shared
-        
-    func readBool(_ key: String) -> Bool {
-        (call.arguments as? [String: Any])?[key] as? Bool ?? false
-    }
-    assert(center.delegate != nil)
-    var options = [UNAuthorizationOptions]()
-    if readBool("sound") {
-        options.append(.sound)
-    }
-    if readBool("badge") {
-        options.append(.badge)
-    }
-    if readBool("alert") {
-        options.append(.alert)
-    }
-    var provisionalRequested = false
-    if #available(iOS 12.0, *) {
-        if readBool("provisional") {
-            options.append(.provisional)
-            provisionalRequested = true
+        let center = UNUserNotificationCenter.current()
+        if(center.delegate != nil){
+            center.getNotificationSettings { (settings) in
+                UserDefaults.standard.set(settings.alertSetting == .enabled,forKey: "pushedMessaging.alertEnabled")
+                self.refreshToken(result: result,alerts: nil)
+                
+            }
+        }
+        else {
+            refreshToken(result: result,alerts: nil)
         }
     }
-    let optionsUnion = UNAuthorizationOptions(options)
-    center.requestAuthorization(options: optionsUnion) { (granted, error) in
-        if let error = error {
-            result(getFlutterError(error))
+    
+    func saveSecToken(_ token:String)->Bool{
+        var query: [CFString: Any] = [kSecClass: kSecClassGenericPassword]
+        query[kSecAttrAccount] = "pushed_token"
+        query[kSecAttrService] = "pushed_messaging_service"
+        query[kSecReturnData] = false
+        query[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlock
+        query[kSecAttrSynchronizable] = false
+        var status = SecItemCopyMatching(query as CFDictionary, nil)
+        query[kSecReturnData] = true
+        if status == errSecSuccess {
+            let update: [CFString: Any] = [kSecValueData: token.data(using: .utf8) as Any]
+            status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+            if status == errSecSuccess {
+                return true
+            }
+            return false
+        } else if status == errSecItemNotFound {
+            query[kSecValueData] = token.data(using: .utf8)
+            status = SecItemAdd(query as CFDictionary, nil)
+            return status == errSecSuccess
+        }
+        return false
+    }
+    func getSecToken()->String?{
+        var query: [CFString: Any] = [kSecClass: kSecClassGenericPassword]
+        query[kSecAttrAccount] = "pushed_token"
+        query[kSecAttrService] = "pushed_messaging_service"
+        query[kSecReturnData] = true
+        query[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlock
+        query[kSecAttrSynchronizable] = false
+        var ref: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &ref)
+        guard status == errSecSuccess, let data = ref as? Data else {
+            return nil
+        }
+        
+        return String(data: data, encoding: .utf8)
+    }
+    
+    func refreshToken(result: FlutterResult?,alerts: Bool?){
+        if(pushedToken==nil){
+            pushedToken=getSecToken()
+        }
+        if(pushedToken==nil){
+            pushedToken=UserDefaults.standard.string(forKey: "pushedMessaging.clientToken")
+        }
+        var parameters: [String: Any] = ["clientToken": pushedToken ?? ""]
+        if(pushedToken == nil){
+            parameters["operatingSystem"] = "iOS"
+        }
+        if(alerts != nil) {
+            parameters["displayPushNotificationsPermission"] = alerts
+
+        }
+        if(UserDefaults.standard.string(forKey: "pushedMessaging.sdkVersion") != UIDevice.current.systemVersion){
+            parameters["sdkVersion"] = UIDevice.current.systemVersion
+        }
+
+        if(apnsToken != nil) {
+            parameters["deviceSettings"]=[["deviceToken": apnsToken, "transportKind": "Apns"]]
+        }
+        let url = URL(string: "https://sub.multipushed.ru/v2/tokens")!
+        let session = URLSession.shared
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("application/json", forHTTPHeaderField: "Accept")
+        addLog("Post Request body: \(parameters)")
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: parameters)
+        } catch let error {
+            addLog(error.localizedDescription)
+            result?(pushedToken ?? "")
             return
         }
-        center.getNotificationSettings { (settings) in
-            let map = [
-                "sound": settings.soundSetting == .enabled,
-                "badge": settings.badgeSetting == .enabled,
-                "alert": settings.alertSetting == .enabled,
-                "provisional": granted && provisionalRequested
-            ]
-            self.channel.invokeMethod("onIosSettingsRegistered", arguments: map)
-        }
-        result(granted)
-    }
-    //application.registerForRemoteNotifications()
-    addLog("Request Permission DONE")
-  }
-  func addLog(_ event: String){
-  #if DEBUG
-      
-    print(event)
-    let log=UserDefaults.standard.string(forKey: "pushedMessaging.pushedLog") ?? ""
-    UserDefaults.standard.set(log+"\(Date()): \(event)\n", forKey: "pushedMessaging.pushedLog")
-  #endif
-  }
+        let task = session.dataTask(with: request) { data, response, error in
+            if let error = error {
+                self.addLog("Post Request Error: \(error.localizedDescription)")
+                result?(self.pushedToken ?? "")
+                return
+            }
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode)
+            else {
+                self.addLog("Invalid Response received from the server")
+                result?(self.pushedToken ?? "")
+                return
+            }
+            guard let responseData = data else {
+                self.addLog("nil Data received from the server")
+                result?(self.pushedToken ?? "")
+                return
+            }
+            do {
+                if let jsonResponse = try JSONSerialization.jsonObject(with: responseData, options: .mutableContainers) as? [String: Any] {
+                    guard let model=jsonResponse["model"] as? [String: Any] else{
+                        self.addLog("Some wrong with model")
+                        result?(self.pushedToken ?? "")
+                        return
+                    }
+                    guard let clientToken=model["clientToken"] as? String else{
+                        self.addLog("Some wrong with ckientToken")
+                        result?(self.pushedToken ?? "")
+                        return
+                    }
+                    if(self.saveSecToken(clientToken)){
+                        self.pushedToken=clientToken
+                    }
+                    UserDefaults.standard.set(UIDevice.current.systemVersion, forKey: "pushedMessaging.sdkVersion")
+                    result?(self.pushedToken ?? "")
+                    self.addLog("ClientToken: \(self.pushedToken!)")
 
-  public func applicationDidEnterBackground(_ application: UIApplication) {
-    addLog("Background On")
-    isBackground = true
-  }
+                } else {
+                    self.addLog("data maybe corrupted or in wrong format")
+                    result?(self.pushedToken ?? "")
+                }
+            } catch let error {
+                self.addLog(error.localizedDescription)
+                result?(self.pushedToken ?? "")
+            }
+        }
+        // perform the task
+        task.resume()
+
+    }
     
-  public func applicationDidBecomeActive(_ application: UIApplication) {
-    addLog("Background Off")
-    isBackground = false
-  }
-
-  public func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    addLog("Apns token: \(deviceToken.hexString)")
-    apnsToken=deviceToken.hexString
-    channel.invokeMethod("apnsToken", arguments: apnsToken)
-  }
-
-  public func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-    var userInfo = response.notification.request.content.userInfo
-    guard userInfo["aps"] != nil else {
-        return
-    }
-    userInfo["buttonId"] = response.actionIdentifier
-    addLog("Message click: \(userInfo)")
-    clickHandler=completionHandler
-    lastNotification=userInfo
-    if(isInited){
-        addLog("Send Message")
-        if isBackground {
-            self.channel.invokeMethod("onReceiveDataBg", arguments: userInfo)
-        } else {
-            channel.invokeMethod("onReceiveData", arguments: userInfo)
+    func addServerLog(message : String, properties : [String: String]){
+        //let df = DateFormatter()
+        let df = ISO8601DateFormatter()
+        //df.dateFormat = "yyyy-MM-ddThh:mm:ss"
+        var parameters: [String: Any] = ["message": message]
+        parameters["incidentTime"] = df.string(from: Date())
+        parameters["properties"] = properties
+        let url = URL(string: "https://api.multipushed.ru/v2/log")!
+        let session = URLSession.shared
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("application/json", forHTTPHeaderField: "Accept")
+        addLog("Post Request body: \(parameters)")
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: parameters)
+        } catch let error {
+            addLog(error.localizedDescription)
+            return
         }
-      }
-      else{
-            addLog("Save as initial Message")
-            initNotification=userInfo
-      }
-  }
+        let task = session.dataTask(with: request) { data, response, error in
+            if let error = error {
+                self.addLog("Post Request Error: \(error.localizedDescription)")
+                return
+            }
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode)
+            else {
+                self.addLog("\((response as? HTTPURLResponse)?.statusCode ?? 0): Invalid Response received from the server")
+                return
+            }
+            self.addLog("\((response as? HTTPURLResponse)?.statusCode ?? 0): Response received from the server")
 
-  public func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) -> Bool {
-    addLog("Message: \(userInfo)")
-    messageHandler=completionHandler
-    lastNotification=userInfo
-    if(isInited){
-        addLog("Send Message")
-        if isBackground {
-            self.channel.invokeMethod("onReceiveDataBg", arguments: userInfo)
-        } else {
-            channel.invokeMethod("onReceiveData", arguments: userInfo)
+            self.addLog("Server log done")
+        }
+        // perform the task
+        task.resume()
+    }
+    func confirmMessage(_ messageId : String){
+        if(pushedToken==nil){
+            pushedToken=getSecToken()
+        }
+        if(pushedToken==nil) {
+            return
+        }
+        let loginString = String(format: "%@:%@", pushedToken!, messageId).data(using: String.Encoding.utf8)!.base64EncodedString()
+        let url = URL(string: "https://pub.multipushed.ru/v2/confirm?transportKind=Apns")!
+        let session = URLSession.shared
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Basic \(loginString)", forHTTPHeaderField: "Authorization")
+        let task = session.dataTask(with: request) { data, response, error in
+            if let error = error {
+                self.addLog("Post Request Error: \(error.localizedDescription)")
+                return
+            }
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode)
+            else {
+                self.addLog("\((response as? HTTPURLResponse)?.statusCode ?? 0): Invalid Response received from the server")
+                return
+            }
+            self.addLog("Message confirm done")
+        }
+        // perform the task
+        task.resume()
+
+    }
+    
+    public func applicationDidEnterBackground(_ application: UIApplication) {
+      addLog("Background On")
+      isBackground = true
+    }
+      
+    public func applicationDidBecomeActive(_ application: UIApplication) {
+      addLog("Background Off")
+      isBackground = false
+    }
+
+    public func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        addLog("Apns token: \(deviceToken.hexString)")
+        if(apnsToken != deviceToken.hexString){
+            apnsToken=deviceToken.hexString
+            refreshToken(result: nil,alerts: nil)
+            
         }
     }
-    else{
-          addLog("Save as initial Message")
-          initNotification=userInfo
+
+    public func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+      var userInfo = response.notification.request.content.userInfo
+      var clickurl: URL?
+        
+      if let messageId=userInfo["messageId"] as? String {
+          addLog("Click MessageId: \(messageId)")
+          if let pusheNotification=userInfo["pushedNotification"] as? [AnyHashable: Any] {
+              if let stringUrl = pusheNotification["url"] as? String {
+                  if let url = URL(string: stringUrl){
+                      clickurl=url
+                  }
+              }
+          }
+          let lastMessageId=UserDefaults.standard.string(forKey: "pushedMessaging.lastMessageId") ?? ""
+          if(lastMessageId != messageId){
+              UserDefaults.standard.set(messageId, forKey: "pushedMessaging.lastMessageId")
+              confirmMessage(messageId)
+              userInfo["buttonId"] = response.actionIdentifier
+              addLog("Message click: \(userInfo)")
+              if(isInited){
+                  addLog("Send Message")
+                  if isBackground {
+                      self.channel.invokeMethod("onReceiveDataBg", arguments: userInfo)
+                  } else {
+                      channel.invokeMethod("onReceiveData", arguments: userInfo)
+                  }
+                }
+                else{
+                      addLog("Save as initial Message")
+                      initNotification=userInfo
+                }
+
+          }
+      }
+      if(clickurl != nil){
+          UIApplication.shared.open(clickurl!, options: [:], completionHandler: nil)
+      }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+            completionHandler()
+      }
+
+      
     }
-    return true
-  }
+
+    public func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) -> Bool {
+        addLog("Message: \(userInfo)")
+
+        if let messageId=userInfo["messageId"] as? String {
+            addLog("MessageId: \(messageId)")
+            let lastMessageId=UserDefaults.standard.string(forKey: "pushedMessaging.lastMessageId") ?? ""
+            if(lastMessageId != messageId){
+                UserDefaults.standard.set(messageId, forKey: "pushedMessaging.lastMessageId")
+                confirmMessage(messageId)
+                if(isInited){
+                    addLog("Send Message")
+                    if isBackground {
+                        self.channel.invokeMethod("onReceiveDataBg", arguments: userInfo)
+                    } else {
+                        channel.invokeMethod("onReceiveData", arguments: userInfo)
+                    }
+                  }
+                  else{
+                        addLog("Save as initial Message")
+                        initNotification=userInfo
+                  }
+
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+            completionHandler(.newData)
+        }
+        return true
+    }
 }
 
 extension Data {
@@ -203,3 +418,4 @@ extension Data {
         return hexString
     }
 }
+

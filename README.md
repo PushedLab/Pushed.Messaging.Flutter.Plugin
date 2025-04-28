@@ -8,7 +8,7 @@ To learn more about Pushed Messaging, please visit the [Pushed website](https://
 
 ```yaml
 # add this line to your dependencies
-flutter_pushed_messaging: ^1.5.1
+flutter_pushed_messaging: ^1.6.0
 ```
 
 ```dart
@@ -119,7 +119,16 @@ Future<void> backgroundMessage(Map<dynamic,dynamic> message) async {
 
 void main() {
 // Initializes plugin and sets backgroundMessage handler.
-  await FlutterPushedMessaging.init(backgroundMessage);
+// Optional parameters:
+//   notificationChannel - (Android only) notification channel (if cahnnel == null The library will not show notifications)
+//   loggerEnabled - Allows the library to save a local log for debugging purposes
+//   askPermissions -  If set to true, permissions are automatically requested.
+  await FlutterPushedMessaging.init(backgroundMessage, notificationChannel: "messages", askPermissions: true, loggerEnabled: false);
+
+// If you need to request permissions yourself, use the askPermissions method.
+//askNotificationPermission - Ask permissions to display notifications.
+//askBackgroundPermission - Ask permissions to work in the background(Android only)
+  await FlutterPushedMessaging.askPermissions(askBackgroundPermission: true, askNotificationPermission: true);
 
 // To send a message to a specific user, you need to know his Client token.
   print("Client token: ${FlutterPushedMessaging.token}");

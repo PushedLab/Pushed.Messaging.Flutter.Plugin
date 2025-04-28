@@ -1,6 +1,6 @@
 import 'flutter_pushed_messaging_platform_interface.dart';
 
-enum ServiceStatus { notActive, disconnected, active }
+enum ServiceStatus { active, disconnected, notActive }
 
 class FlutterPushedMessaging {
   ///Return current service status
@@ -9,16 +9,32 @@ class FlutterPushedMessaging {
   ///Return current client token
   static String? get token => FlutterPushedMessagingPlatform.pushToken;
 
-  ///Forcibly resets the connection to the server
-  static Future<void> reconnect() {
-    return FlutterPushedMessagingPlatform.instance.reconnect();
+  ///Init and start background service
+  ///notificationChannel - (Android only) notification channel (if cahnnel == null The library will not show notifications)
+  ///loggerEnabled - Allows the library to save a local log for debugging purposes
+  ///askPermissions -  If set to true, permissions are automatically requested.
+  static Future<bool> init(
+      Function(Map<dynamic, dynamic>)? backgroundMessageHandler,
+      {String? notificationChannel = "messages",
+      bool loggerEnabled = false,
+      bool askPermissions = true,
+      bool serverLoggerEnabled = false}) {
+    return FlutterPushedMessagingPlatform.instance.init(
+        backgroundMessageHandler,
+        notificationChannel,
+        loggerEnabled,
+        askPermissions,
+        serverLoggerEnabled);
   }
 
-  ///Init and start background service
-  static Future<bool> init(
-      Function(Map<dynamic, dynamic>) backgroundMessageHandler) {
+  ///Ask permissions
+  ///askNotificationPermission - Ask permissions to display notifications.
+  ///askBackgroundPermission - Ask permissions to work in the background(Android only)
+  static Future<void> askPermissions(
+      {bool askNotificationPermission = true,
+      bool askBackgroundPermission = true}) {
     return FlutterPushedMessagingPlatform.instance
-        .init(backgroundMessageHandler);
+        .askPermissions(askNotificationPermission, askBackgroundPermission);
   }
 
   ///Returns a Stream that is called when changing service status

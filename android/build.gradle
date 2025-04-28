@@ -2,14 +2,15 @@ group 'ru.pushed.flutter_pushed_messaging'
 version '1.0'
 
 buildscript {
+    ext.kotlin_version = "1.7.10"
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.3.0'
-
+        classpath("com.android.tools.build:gradle:7.3.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
     }
 }
 
@@ -18,29 +19,70 @@ rootProject.allprojects {
         maven {
             url = uri("https://artifactory-external.vkpartner.ru/artifactory/maven")
         }
+        maven {
+            url = uri("https://developer.huawei.com/repo/")
+        }
+        maven {
+            url = uri("https://jitpack.io")
+        }
         google()
         mavenCentral()
     }
 }
 
-apply plugin: 'com.android.library'
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+
+    }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
 
 android {
     if (project.android.hasProperty("namespace")) {
         namespace = "ru.pushed.flutter_pushed_messaging"
     }
-    compileSdkVersion 34
+
+    compileSdk = 34
+
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+
+    sourceSets {
+        main.java.srcDirs += "src/main/kotlin"
+        test.java.srcDirs += "src/test/kotlin"
     }
 
     defaultConfig {
-        minSdkVersion 21
+        minSdk = 23
     }
-}
 
-dependencies {
-    implementation("ru.rustore.sdk:pushclient:6.3.0")
+    dependencies {
+        testImplementation("org.jetbrains.kotlin:kotlin-test")
+        testImplementation("org.mockito:mockito-core:5.0.0")
+        implementation("com.github.PushedLab:Pushed.Messaging.Android.Library:1.4.2")
+
+    }
+
+    testOptions {
+        unitTests.all {
+            useJUnitPlatform()
+
+            testLogging {
+               events "passed", "skipped", "failed", "standardOut", "standardError"
+               outputs.upToDateWhen {false}
+               showStandardStreams = true
+            }
+        }
+    }
 }
