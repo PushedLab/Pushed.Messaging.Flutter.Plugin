@@ -1,3 +1,7 @@
+## 1.6.1
+
+* Added support for new statuses.
+
 ## 1.6.0
 
 * Added the ability to display notifications.

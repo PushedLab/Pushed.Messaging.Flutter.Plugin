@@ -1,14 +1,14 @@
 # Pushed Messaging Plugin for Flutter
 
-A Flutter plugin to use the Pushed Messaging.
+A Flutter plugin to use the Multipushed Messaging.
 
-To learn more about Pushed Messaging, please visit the [Pushed website](https://pushed.ru)
+To learn more about Multipushed Messaging, please visit the [Pushed website](https://multipushed.ru)
 
 ## Getting Started
 
 ```yaml
 # add this line to your dependencies
-flutter_pushed_messaging: ^1.6.0
+flutter_pushed_messaging: ^1.6.1
 ```
 
 ```dart

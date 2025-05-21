@@ -49,9 +49,10 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
     var result = await methodChannel.invokeMethod<String>(
         'init', {"log": loggerEnabled, "serverlog": loggerEnabled});
     if (result != "") {
-      if (askPermissions)
+      if (askPermissions) {
         await methodChannel
             .invokeMethod<bool>('requestNotificationPermissions');
+      }
       FlutterPushedMessagingPlatform.pushToken = result;
       FlutterPushedMessagingPlatform.status = ServiceStatus.active;
       return true;
@@ -63,7 +64,8 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
   Future<void> askPermissions(
       [bool askNotificationPermission = true,
       bool askBackgroundPermission = true]) async {
-    if (askNotificationPermission)
+    if (askNotificationPermission) {
       await methodChannel.invokeMethod<bool>('requestNotificationPermissions');
+    }
   }
 }
