@@ -1,6 +1,6 @@
 name: flutter_pushed_messaging
 description: A Flutter plugin for use Multipushed messaging system.
-version: 1.6.1
+version: 1.6.2
 repository: https://github.com/PushedLab/Pushed.Messaging.Flutter.Plugin
 
 environment:

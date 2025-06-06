@@ -28,6 +28,7 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
     }
     let sdkVersion = "Flutter 1.6.1"
     let operatingSystem = "iOS \(UIDevice.current.systemVersion)"
+    var phoneModel = ""
     var apnsToken: String?
     var pushedToken: String?
     let channel: FlutterMethodChannel
@@ -162,7 +163,10 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
         if(pushedToken==nil){
             pushedToken=UserDefaults.standard.string(forKey: "pushedMessaging.clientToken")
         }
-        
+        var sysinfo = utsname()
+        uname(&sysinfo) 
+        phoneModel=String(bytes: Data(bytes: &sysinfo.machine, count: Int(_SYS_NAMELEN)), encoding: .ascii)!.trimmingCharacters(in: .controlCharacters)
+
         var parameters: [String: Any] = ["clientToken": pushedToken ?? ""]
         if(UserDefaults.standard.string(forKey: "pushedMessaging.operatingSystem") != operatingSystem){
             parameters["operatingSystem"] = operatingSystem
@@ -174,7 +178,9 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
         if(UserDefaults.standard.string(forKey: "pushedMessaging.sdkVersion") != sdkVersion){
             parameters["sdkVersion"] = sdkVersion
         }
-
+        if(UserDefaults.standard.string(forKey: "pushedMessaging.phoneModel") != phoneModel){
+            parameters["mobileDeviceName"] = phoneModel
+        }
         if(apnsToken != nil) {
             parameters["deviceSettings"]=[["deviceToken": apnsToken, "transportKind": "Apns"]]
         }
@@ -228,6 +234,7 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
                     }
                     UserDefaults.standard.set(self.sdkVersion, forKey: "pushedMessaging.sdkVersion")
                     UserDefaults.standard.set(self.operatingSystem, forKey: "pushedMessaging.operatingSystem")
+                    UserDefaults.standard.set(self.phoneModel, forKey: "pushedMessaging.phoneModel")
                     result?(self.pushedToken ?? "")
                     self.addLog("ClientToken: \(self.pushedToken!)")
 
