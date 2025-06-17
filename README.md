@@ -8,7 +8,7 @@ To learn more about Multipushed Messaging, please visit the [Pushed website](htt
 
 ```yaml
 # add this line to your dependencies
-flutter_pushed_messaging: ^1.6.2
+flutter_pushed_messaging: ^1.6.3
 ```
 
 ```dart

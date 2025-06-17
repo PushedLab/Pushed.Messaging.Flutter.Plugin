@@ -1,3 +1,8 @@
+## 1.6.3
+
+* Added support iOS extensions.
+* Improved support for collecting device statistics.
+
 ## 1.6.2
 
 * The work of the background services has been improved.
