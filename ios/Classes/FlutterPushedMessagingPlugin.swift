@@ -23,6 +23,7 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
         let clientToken=getSecToken()
         if(messageId != nil && clientToken != nil){
             confirmMessageAction(messageId!, clientToken: clientToken, action: "Show")
+            confirmMessage(messageId!,clientToken: clientToken)
         }
     }
     private func addLog(_ event: String){
@@ -294,14 +295,11 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
         // perform the task
         task.resume()
     }
-    func confirmMessage(_ messageId : String){
-        if(pushedToken==nil){
-            pushedToken=FlutterPushedMessagingPlugin.getSecToken()
-        }
-        if(pushedToken==nil) {
+    public static func confirmMessage(_ messageId : String,clientToken: String?){
+        if(clientToken==nil) {
             return
         }
-        let loginString = String(format: "%@:%@", pushedToken!, messageId).data(using: String.Encoding.utf8)!.base64EncodedString()
+        let loginString = String(format: "%@:%@", clientToken!, messageId).data(using: String.Encoding.utf8)!.base64EncodedString()
         let url = URL(string: "https://pub.multipushed.ru/v2/confirm?transportKind=Apns")!
         let session = URLSession.shared
         var request = URLRequest(url: url)
@@ -311,16 +309,13 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
         request.setValue("Basic \(loginString)", forHTTPHeaderField: "Authorization")
         let task = session.dataTask(with: request) { data, response, error in
             if let error = error {
-                self.addLog("Post Request Error: \(error.localizedDescription)")
                 return
             }
             guard let httpResponse = response as? HTTPURLResponse,
                   (200...299).contains(httpResponse.statusCode)
             else {
-                self.addLog("\((response as? HTTPURLResponse)?.statusCode ?? 0): Invalid Response received from the server")
                 return
             }
-            self.addLog("Message confirm done")
         }
         // perform the task
         task.resume()
@@ -390,26 +385,27 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
             if(pushedToken==nil){
                 pushedToken=FlutterPushedMessagingPlugin.getSecToken()
             }
-            FlutterPushedMessagingPlugin.confirmMessageAction(messageId, clientToken: pushedToken, action: "Click")
             let lastMessageId=UserDefaults.standard.string(forKey: "pushedMessaging.lastMessageId") ?? ""
             if(lastMessageId != messageId){
                 UserDefaults.standard.set(messageId, forKey: "pushedMessaging.lastMessageId")
-                confirmMessage(messageId)
+                FlutterPushedMessagingPlugin.confirmMessage(messageId, clientToken: pushedToken)
+                FlutterPushedMessagingPlugin.confirmMessageAction(messageId, clientToken: pushedToken, action: "Show")
             }
-              userInfo["buttonId"] = response.actionIdentifier
-              addLog("Message click: \(userInfo)")
-              if(isInited){
-                  addLog("Send click Message")
-                  if isBackground {
-                      self.channel.invokeMethod("onReceiveDataBg", arguments: userInfo)
-                  } else {
-                      channel.invokeMethod("onReceiveData", arguments: userInfo)
-                  }
+            FlutterPushedMessagingPlugin.confirmMessageAction(messageId, clientToken: pushedToken, action: "Click")
+            userInfo["buttonId"] = response.actionIdentifier
+            addLog("Message click: \(userInfo)")
+            if(isInited){
+                addLog("Send click Message")
+                if isBackground {
+                    self.channel.invokeMethod("onReceiveDataBg", arguments: userInfo)
+                } else {
+                    channel.invokeMethod("onReceiveData", arguments: userInfo)
                 }
-                else{
-                      addLog("Save as initial Message")
+            }
+            else{
+                addLog("Save as initial Message")
                       initNotification=userInfo
-                }
+            }
 
       }
       if(clickurl != nil){
@@ -430,13 +426,16 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
             addLog("MessageId: \(messageId)")
             let alertBody = (userInfo["aps"] as? [AnyHashable: Any])?["alert"]
             let alerts = UserDefaults.standard.bool(forKey: "pushedMessaging.alertEnabled")
-            if(alerts && isBackground && ((alertBody as? [AnyHashable: Any]) !=  nil ||  (alertBody as? String) != nil)){
-                FlutterPushedMessagingPlugin.confirmMessageAction(messageId, action: "Show")
+            if(pushedToken==nil){
+                pushedToken=FlutterPushedMessagingPlugin.getSecToken()
             }
             let lastMessageId=UserDefaults.standard.string(forKey: "pushedMessaging.lastMessageId") ?? ""
             if(lastMessageId != messageId){
                 UserDefaults.standard.set(messageId, forKey: "pushedMessaging.lastMessageId")
-                confirmMessage(messageId)
+                FlutterPushedMessagingPlugin.confirmMessage(messageId, clientToken: pushedToken)
+                if(alerts && isBackground && ((alertBody as? [AnyHashable: Any]) !=  nil ||  (alertBody as? String) != nil)){
+                    FlutterPushedMessagingPlugin.confirmMessageAction(messageId, clientToken: pushedToken, action: "Show")
+                }
                 if(isInited){
                     addLog("Send Message")
                     if isBackground {
