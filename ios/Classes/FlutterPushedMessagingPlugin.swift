@@ -51,6 +51,16 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
                 UserDefaults.standard.set((call.arguments as? [String: Any])?["log"] as? Bool ?? false,forKey: "pushedMessaging.logEnabled")
                 UserDefaults.standard.set((call.arguments as? [String: Any])?["serverlog"] as? Bool ?? false,forKey: "pushedMessaging.serverlogEnabled")
                 initialize(result: result)
+            case "pushedMessage":
+                let lastMessageId=UserDefaults.standard.string(forKey: "pushedMessaging.lastMessageId")
+                let messageId=(call.arguments as? [String: Any])?["messageId"] as? String
+                if(messageId != nil && lastMessageId != messageId){
+                    UserDefaults.standard.set(messageId, forKey: "pushedMessaging.lastMessageId")
+                    result(true)
+                }
+                else {
+                    result(false)
+                }
             case "requestNotificationPermissions":
                 requestNotificationPermissions(result: result)
             case "getToken":
@@ -356,8 +366,11 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
     }
       
     public func applicationDidBecomeActive(_ application: UIApplication) {
-      addLog("Background Off")
-      isBackground = false
+        addLog("Background Off")
+        if(isInited){
+            channel.invokeMethod("reconnect",arguments: nil)
+        }
+        isBackground = false
     }
 
     public func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
