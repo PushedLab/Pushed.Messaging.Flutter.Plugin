@@ -59,10 +59,14 @@ class FlutterPushedMessagingPlugin: FlutterPlugin, MethodCallHandler, ActivityAw
     } catch (e: Exception) {
       false
     }
-
+    val applicationId=try {
+      arguments.getString("applicationId")
+    } catch (e: Exception) {
+      null
+    }
     pushedService= PushedService(bindedActivity!!.activity,BackgroundMessageReceiver::class.java,
       enableLogger = loggerEnabled, channel = pushChannel,
-      enableServerLogger = serverLoggerEnabled, askPermissions = askpermissions)
+      enableServerLogger = serverLoggerEnabled, applicationId = applicationId, askPermissions = askpermissions)
     //pushedService= PushedService(bindedActivity!!.activity,BackgroundMessageReceiver::class.java)
 
 

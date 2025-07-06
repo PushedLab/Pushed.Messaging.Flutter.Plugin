@@ -381,6 +381,7 @@ void main() async {
         notificationChannel: "messages",     // 🤖 Только для Android
         askPermissions: true,               // 📱 Автозапрос разрешений
         loggerEnabled: false,               // 🐛 Включите для отладки
+        applicationId: "YOUR_APP_ID",       // 🔑 Кастомный идентификатор (опционально)
     );
     
     // 🔑 Получение уникального токена клиента
@@ -538,7 +539,13 @@ Future<void> backgroundMessage(Map<dynamic, dynamic> message) async {
 ```dart
 void main() async {
     WidgetsFlutterBinding.ensureInitialized(); // ← Важно!
-    await FlutterPushedMessaging.init(backgroundMessage); // ← Await!
+    await FlutterPushedMessaging.init(
+        backgroundMessage,
+        notificationChannel: "messages",     // 🤖 Только для Android
+        askPermissions: true,               // 📱 Автозапрос разрешений
+        loggerEnabled: false,               // 🐛 Включите для отладки
+        applicationId: "YOUR_APP_ID",       // 🔑 Кастомный идентификатор (опционально)
+    ); // ← Await!
     runApp(MyApp());
 }
 ```

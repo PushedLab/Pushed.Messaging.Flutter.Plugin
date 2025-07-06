@@ -39,7 +39,8 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
       [String? notificationChannel = "messages",
       bool loggerEnabled = false,
       bool askPermissions = true,
-      bool serverLoggerEnabled = false]) {
+      bool serverLoggerEnabled = false,
+      String? applicationId]) {
     throw UnimplementedError('init() has not been implemented.');
   }
 

@@ -59,11 +59,16 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
       [String? notificationChannel = "messages",
       bool loggerEnabled = false,
       bool askPermissions = true,
-      bool serverLoggerEnabled = false]) async {
+      bool serverLoggerEnabled = false,
+      String? applicationId]) async {
     messageCallback = backgroundMessageHandler;
     methodChannel.setMethodCallHandler(_handle);
-    var result = await methodChannel.invokeMethod<String>(
-        'init', {"log": loggerEnabled, "serverlog": loggerEnabled});
+    var result = await methodChannel.invokeMethod<String>('init', {
+      "log": loggerEnabled,
+      "serverlog": loggerEnabled,
+      if (applicationId != null && applicationId.isNotEmpty)
+        "applicationId": applicationId
+    });
     if (result != "") {
       if (askPermissions) {
         await methodChannel
@@ -110,7 +115,8 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
       await subs?.cancel();
       webChannel?.sink.close();
       webChannel = WebSocketChannel.connect(
-        Uri.parse('wss://sub.pushed.ru/v2/open-websocket/${FlutterPushedMessagingPlatform.pushToken}'),
+        Uri.parse(
+            'wss://sub.pushed.ru/v2/open-websocket/${FlutterPushedMessagingPlatform.pushToken}'),
       );
       await webChannel?.ready;
       setNewStatus(ServiceStatus.active);
@@ -120,22 +126,23 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
         if (message != "ONLINE") {
           var payload = json.decode(message);
           var messageId = payload["messageId"];
-          var traceId=payload["mfTraceId"];
-          var valid=await methodChannel.invokeMethod<bool>("pushedMessage",{"messageId": messageId});
-          if (valid==true) {
+          var traceId = payload["mfTraceId"];
+          var valid = await methodChannel
+              .invokeMethod<bool>("pushedMessage", {"messageId": messageId});
+          if (valid == true) {
             await addLog("Pushed processing message");
-            var response = json.encode(<String, dynamic>{"messageId": messageId,
-              if(traceId!=null) "mfTraceId": traceId});
+            var response = json.encode(<String, dynamic>{
+              "messageId": messageId,
+              if (traceId != null) "mfTraceId": traceId
+            });
             webChannel?.sink.add(utf8.encode(response));
             try {
               var data = json.decode(payload["data"]);
               payload["data"] = data;
             } catch (_) {}
-            FlutterPushedMessagingPlatform.messageController.sink
-                .add(payload);
+            FlutterPushedMessagingPlatform.messageController.sink.add(payload);
           }
         }
-
       }, onDone: () async {
         await addLog("Closed");
         active = false;
@@ -153,17 +160,13 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
     }
   }
 
-  Future<void> addLog(String event) async{
-    await methodChannel.invokeMethod<bool>(
-        'setLog', {"event": event});
+  Future<void> addLog(String event) async {
+    await methodChannel.invokeMethod<bool>('setLog', {"event": event});
   }
 
-   void setNewStatus(ServiceStatus newStatus) {
-    if(FlutterPushedMessaging.status!=newStatus){
+  void setNewStatus(ServiceStatus newStatus) {
+    if (FlutterPushedMessaging.status != newStatus) {
       FlutterPushedMessagingPlatform.statusController.sink.add(newStatus);
-   }
+    }
   }
-
-
-
 }

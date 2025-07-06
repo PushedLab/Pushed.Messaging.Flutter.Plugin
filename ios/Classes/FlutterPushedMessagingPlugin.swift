@@ -42,6 +42,7 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
     var initNotification: [AnyHashable: Any]?
     var isBackground = true
     var isInited=false
+    var applicationId: String? = UserDefaults.standard.string(forKey: "pushedMessaging.applicationId")
  
 
 
@@ -50,6 +51,10 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
             case "init":
                 UserDefaults.standard.set((call.arguments as? [String: Any])?["log"] as? Bool ?? false,forKey: "pushedMessaging.logEnabled")
                 UserDefaults.standard.set((call.arguments as? [String: Any])?["serverlog"] as? Bool ?? false,forKey: "pushedMessaging.serverlogEnabled")
+                if let appId = (call.arguments as? [String: Any])?["applicationId"] as? String, !appId.isEmpty {
+                    applicationId = appId
+                    UserDefaults.standard.set(appId, forKey: "pushedMessaging.applicationId")
+                }
                 initialize(result: result)
             case "pushedMessage":
                 let lastMessageId=UserDefaults.standard.string(forKey: "pushedMessaging.lastMessageId")
@@ -70,6 +75,15 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
             case "setLog":
                 addLog((call.arguments as? [String: Any])?["event"] as? String ?? "")
                 result(true)
+            case "resetToken":
+                resetToken(result: result)
+            case "clearToken":
+                // Remove stored token without requesting a new one (testing purpose)
+                deleteSecToken()
+                UserDefaults.standard.removeObject(forKey: "pushedMessaging.clientToken")
+                pushedToken = nil
+                addLog("Token cleared manually")
+                result(true)
             default:
                 result(FlutterMethodNotImplemented)
         }
@@ -80,7 +94,10 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
         let alerts = UserDefaults.standard.bool(forKey: "pushedMessaging.alertEnabled")
         let serverLog = UserDefaults.standard.bool(forKey: "pushedMessaging.serverlogEnabled")
         let center = UNUserNotificationCenter.current()
-        assert(center.delegate != nil)
+        // Ensure the notification center delegate is assigned to avoid a runtime crash.
+        if center.delegate == nil {
+            center.delegate = self
+        }
         var options = [UNAuthorizationOptions]()
         options.append(.sound)
         options.append(.badge)
@@ -185,6 +202,9 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
         phoneModel=String(bytes: Data(bytes: &sysinfo.machine, count: Int(_SYS_NAMELEN)), encoding: .ascii)!.trimmingCharacters(in: .controlCharacters)
 
         var parameters: [String: Any] = ["clientToken": pushedToken ?? ""]
+        if let appId = applicationId, !appId.isEmpty {
+            parameters["applicationId"] = appId
+        }
         if(UserDefaults.standard.string(forKey: "pushedMessaging.operatingSystem") != operatingSystem){
             parameters["operatingSystem"] = operatingSystem
         }
@@ -469,6 +489,30 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
             completionHandler(.newData)
         }
         return true
+    }
+
+    // Remove saved token from keychain
+    private func deleteSecToken() {
+        var query: [CFString: Any] = [kSecClass: kSecClassGenericPassword]
+        query[kSecAttrAccount] = "pushed_token"
+        query[kSecAttrService] = "pushed_messaging_service"
+        SecItemDelete(query as CFDictionary)
+    }
+
+    // Reset stored token and request a new one from the backend
+    private func resetToken(result: @escaping FlutterResult) {
+        addLog("Reset token requested")
+        // Remove from key-chain and user defaults
+        deleteSecToken()
+        UserDefaults.standard.removeObject(forKey: "pushedMessaging.clientToken")
+        pushedToken = nil
+
+        // Request new token
+        refreshToken(result: { newToken in
+            // Tell flutter layer to reconnect once token obtained
+            self.channel.invokeMethod("reconnect", arguments: nil)
+            result(newToken)
+        }, alerts: nil)
     }
 }
 

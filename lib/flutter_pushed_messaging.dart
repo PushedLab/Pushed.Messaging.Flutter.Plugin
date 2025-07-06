@@ -13,18 +13,21 @@ class FlutterPushedMessaging {
   ///notificationChannel - (Android only) notification channel (if cahnnel == null The library will not show notifications)
   ///loggerEnabled - Allows the library to save a local log for debugging purposes
   ///askPermissions -  If set to true, permissions are automatically requested.
+  ///applicationId - Custom identifier passed to backend when issuing client token (optional).
   static Future<bool> init(
       Function(Map<dynamic, dynamic>)? backgroundMessageHandler,
       {String? notificationChannel = "messages",
       bool loggerEnabled = false,
       bool askPermissions = true,
-      bool serverLoggerEnabled = false}) {
+      bool serverLoggerEnabled = false,
+      String? applicationId}) {
     return FlutterPushedMessagingPlatform.instance.init(
         backgroundMessageHandler,
         notificationChannel,
         loggerEnabled,
         askPermissions,
-        serverLoggerEnabled);
+        serverLoggerEnabled,
+        applicationId);
   }
 
   ///Ask permissions
