@@ -65,7 +65,8 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
       [String? notificationChannel = "messages",
       bool loggerEnabled = false,
       bool askPermissions = true,
-      bool serverLoggerEnabled = false]) async {
+      bool serverLoggerEnabled = false,
+      String? applicationId]) async {
     methodChannel.setMethodCallHandler(_handle);
     var rawHandle = 0;
     if (backgroundMessageHandler != null) {
@@ -78,7 +79,9 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
       "channel": notificationChannel,
       "logger": loggerEnabled,
       "askpermissions": askPermissions,
-      "serverLoggerEnabled": serverLoggerEnabled
+      "serverLoggerEnabled": serverLoggerEnabled,
+      if (applicationId != null && applicationId.isNotEmpty)
+        "applicationId": applicationId,
     });
     if (result) {
       FlutterPushedMessagingPlatform.status =
