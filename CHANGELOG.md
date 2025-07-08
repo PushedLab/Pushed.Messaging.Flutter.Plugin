@@ -1,3 +1,8 @@
+## 1.6.5
+
+* Now you can use your application Id when initializing the plugin.
+* Improved support RuStore.
+
 ## 1.6.3
 
 * Added support iOS extensions.
