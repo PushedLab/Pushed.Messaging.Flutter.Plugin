@@ -25,7 +25,7 @@
 
 ```yaml
 dependencies:
-  flutter_pushed_messaging: ^1.6.5
+  flutter_pushed_messaging: ^1.6.6
 ```
 
 Затем выполните:
@@ -69,7 +69,7 @@ import 'package:flutter_pushed_messaging/flutter_pushed_messaging.dart';
 
 ```yaml
 dependencies:
-  flutter_pushed_messaging: ^1.6.5
+  flutter_pushed_messaging: ^1.6.6
 ```
 
 Затем выполните:

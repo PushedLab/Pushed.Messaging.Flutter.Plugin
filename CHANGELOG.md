@@ -1,4 +1,4 @@
-## 1.6.5
+## 1.6.6
 
 * Now you can use your application Id when initializing the plugin.
 * Improved support RuStore.
