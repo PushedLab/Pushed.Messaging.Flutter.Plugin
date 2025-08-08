@@ -1,5 +1,13 @@
 ## 1.6.6
 
+* Updated Android native library to version 1.4.6:
+  * Added dynamic SDK version support
+  * Improved security by setting android:exported to false for internal components
+  * Added platform field in API requests
+  * Various code improvements and optimizations
+
+## 1.6.5
+
 * Now you can use your application Id when initializing the plugin.
 * Improved support RuStore.
 
