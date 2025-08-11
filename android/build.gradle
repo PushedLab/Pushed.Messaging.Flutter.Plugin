@@ -70,7 +70,7 @@ android {
     dependencies {
         testImplementation("org.jetbrains.kotlin:kotlin-test")
         testImplementation("org.mockito:mockito-core:5.0.0")
-        implementation("com.github.PushedLab:Pushed.Messaging.Android.Library:1.4.6")
+        implementation("com.github.PushedLab:Pushed.Messaging.Android.Library:1.4.6.2")
 
     }
 

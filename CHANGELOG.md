@@ -1,3 +1,6 @@
+## 1.6.7
+* Fixed a bug on FCM and RuStore initialization
+
 ## 1.6.6
 
 * Updated Android native library to version 1.4.6:
