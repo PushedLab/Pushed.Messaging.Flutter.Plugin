@@ -1,3 +1,6 @@
+## 1.6.8
+* Tracking push clicks 
+
 ## 1.6.7
 * Fixed a bug on FCM and RuStore initialization
 

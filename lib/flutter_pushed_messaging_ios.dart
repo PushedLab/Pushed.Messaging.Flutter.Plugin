@@ -97,6 +97,12 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
   }
 
   @override
+  Future<Map<dynamic, dynamic>?> getInitialMessage() async {
+    // TODO: implement getInitialMessage on iOS
+    return null;
+  }
+
+  @override
   Future<void> askPermissions(
       [bool askNotificationPermission = true,
       bool askBackgroundPermission = true]) async {
