@@ -51,6 +51,12 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
         FlutterPushedMessagingPlatform.statusController.sink
             .add(FlutterPushedMessagingPlatform.status);
         break;
+      case "onMessageOpenedApp":
+        await methodChannel.invokeMethod<dynamic>(
+            "log", {"event": "Flutter onMessageOpenedApp: ${call.arguments}"});
+        FlutterPushedMessagingPlatform.onMessageOpenedAppController.sink
+            .add(call.arguments);
+        break;
       default:
     }
   }
@@ -58,6 +64,12 @@ class AndroidFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
   @override
   Future<String?> getLog() async {
     return await methodChannel.invokeMethod<dynamic>("getLog");
+  }
+
+  @override
+  Future<Map<dynamic, dynamic>?> getInitialMessage() async {
+    return await methodChannel
+        .invokeMethod<Map<dynamic, dynamic>?>('getInitialMessage');
   }
 
   @override

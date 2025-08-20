@@ -97,6 +97,12 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
   }
 
   @override
+  Future<Map<dynamic, dynamic>?> getInitialMessage() async {
+    // TODO: implement getInitialMessage on iOS
+    return null;
+  }
+
+  @override
   Future<void> askPermissions(
       [bool askNotificationPermission = true,
       bool askBackgroundPermission = true]) async {
@@ -140,6 +146,38 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
               payload["data"] = data;
             } catch (_) {}
             FlutterPushedMessagingPlatform.messageController.sink.add(payload);
+            String title = "";
+            String body = "";
+            dynamic dataField = payload["data"];
+            if (dataField is String) {
+              if (dataField.isNotEmpty) {
+                try {
+                  final parsed = json.decode(dataField);
+                  if (parsed is Map) {
+                    title = parsed["title"]?.toString() ?? "";
+                    body = parsed["body"]?.toString() ?? "";
+                  }
+                } catch (_) {
+                  // Not JSON – ignore
+                }
+              }
+            } else if (dataField is Map) {
+              title = dataField["title"]?.toString() ?? "";
+              body = dataField["body"]?.toString() ?? "";
+            }
+
+            if (title.isEmpty && body.isEmpty) {
+              // Fallback to pushedNotification field if present
+              final notif = payload["pushedNotification"];
+              if (notif is Map) {
+                title = notif["Title"]?.toString() ?? "";
+                body = notif["Body"]?.toString() ?? "";
+              }
+            }
+            if (title.isNotEmpty || body.isNotEmpty) {
+              await methodChannel.invokeMethod(
+                  'showNotification', {'title': title, 'body': body});
+            }
           }
         }
       }, onDone: () async {

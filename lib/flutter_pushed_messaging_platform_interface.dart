@@ -21,18 +21,26 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
       StreamController<Map<dynamic, dynamic>>.broadcast(sync: true);
   static var statusController =
       StreamController<ServiceStatus>.broadcast(sync: true);
+  static var onMessageOpenedAppController =
+      StreamController<Map<dynamic, dynamic>>.broadcast(sync: true);
 
   static ServiceStatus status = ServiceStatus.notActive;
   static String? pushToken;
   static Stream<Map<dynamic, dynamic>> get onMessage =>
       messageController.stream;
   static Stream<ServiceStatus> get onStatus => statusController.stream;
+  static Stream<Map<dynamic, dynamic>> get onMessageOpenedApp =>
+      onMessageOpenedAppController.stream;
 
   static FlutterPushedMessagingPlatform get instance => _instance;
 
   static set instance(FlutterPushedMessagingPlatform instance) {
     PlatformInterface.verifyToken(instance, _token);
     _instance = instance;
+  }
+
+  Future<Map<dynamic, dynamic>?> getInitialMessage() {
+    throw UnimplementedError('getInitialMessage() has not been implemented.');
   }
 
   Future<bool> init(Function(Map<dynamic, dynamic>)? backgroundMessageHandler,

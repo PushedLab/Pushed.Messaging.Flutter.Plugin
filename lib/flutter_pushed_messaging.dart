@@ -50,6 +50,16 @@ class FlutterPushedMessaging {
     return FlutterPushedMessagingPlatform.onMessage;
   }
 
+  ///Returns a Stream that is called when a user clicks on a notification
+  static Stream<Map<dynamic, dynamic>> onMessageOpenedApp() {
+    return FlutterPushedMessagingPlatform.onMessageOpenedApp;
+  }
+
+  ///Returns a message that opened the app from a terminated state
+  static Future<Map<dynamic, dynamic>?> getInitialMessage() {
+    return FlutterPushedMessagingPlatform.instance.getInitialMessage();
+  }
+
   ///Returns the service log(debug only)
   static Future<String?> getLog() {
     return FlutterPushedMessagingPlatform.instance.getLog();

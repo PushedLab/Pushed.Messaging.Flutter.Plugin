@@ -20,8 +20,7 @@ void main() async {
     backgroundMessage,
     notificationChannel: "messages",
     askPermissions: true,
-    loggerEnabled: false,
-    applicationId: "",
+    loggerEnabled: true,
   );
   runApp(const MyApp());
 }
@@ -47,6 +46,17 @@ class _MyAppState extends State<MyApp> {
 
   // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initPlatformState() async {
+    // Handle message which opened the app from a terminated state
+    final initialMessage = await FlutterPushedMessaging.getInitialMessage();
+    if (initialMessage != null) {
+      print("onMessageOpenedApp (from terminated): $initialMessage");
+    }
+
+    // Handle message which opened the app from a background state
+    FlutterPushedMessaging.onMessageOpenedApp().listen((message) async {
+      print("onMessageOpenedApp (from background): $message");
+    });
+
     FlutterPushedMessaging.onMessage().listen((message) {
       print("Message: $message");
 
@@ -123,6 +133,7 @@ class _MyAppState extends State<MyApp> {
                 textAlign: TextAlign.center,
                 maxLines: 3,
               ),
+              const SizedBox(height: 12),
               Text(
                 _token,
                 style: Theme.of(context).textTheme.titleMedium,
