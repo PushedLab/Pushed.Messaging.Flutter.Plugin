@@ -9,7 +9,13 @@ class MockFlutterPushedMessagingPlatform
     implements FlutterPushedMessagingPlatform {
 
   @override
-  Future<bool> init(Function(Map<dynamic, dynamic>)? backgroundMessageHandler,[String? notificationChannel="messages",bool loggerEnabled=false,bool askPermissions=true,bool serverLoggerEnabled=false]) {
+  Future<bool> init(Function(Map<dynamic, dynamic>)? backgroundMessageHandler,
+      [String? notificationChannel="messages",
+        bool loggerEnabled=false,
+        bool askPermissions=true,
+        bool serverLoggerEnabled=false,
+        String? applicationId,
+        bool enablePushOnForeground =true]) {
     return Future.value(true);
   }
 
@@ -25,6 +31,12 @@ class MockFlutterPushedMessagingPlatform
   @override
   Future<void> askPermissions([bool askNotificationPermission = true, bool askBackgroundPermission = true]) {
     // TODO: implement askPermissions
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Map?> getInitialMessage() {
+    // TODO: implement getInitialMessage
     throw UnimplementedError();
   }
 }

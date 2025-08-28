@@ -59,9 +59,7 @@ class FlutterPushedMessagingPlugin: FlutterPlugin, MethodCallHandler, ActivityAw
   fun initPlugin(arguments:JSONObject):Boolean{
     if(bindedActivity==null) return false
 
-    val currentSdk = arguments.optString("currentSdk", null)
-    val storedSdk = pref?.getString("currentSdk", null)
-    if(token != null && (currentSdk == null || currentSdk == storedSdk)) {
+    if(token != null) {
       return true
     }
 
@@ -96,15 +94,17 @@ class FlutterPushedMessagingPlugin: FlutterPlugin, MethodCallHandler, ActivityAw
     } catch (e: Exception) {
       null
     }
-
-    val sdkToUse = currentSdk ?: storedSdk ?: "Flutter 1.6.9"
-    if (currentSdk != null) {
-      pref?.edit()?.putString("currentSdk", currentSdk)?.apply()
+    val enablePushOnForeground=try {
+      arguments.getBoolean("enablePushOnForeground")
+    } catch (e: Exception) {
+      true
     }
+
+
 
     pushedService= PushedService(bindedActivity!!.activity,BackgroundMessageReceiver::class.java,
       enableLogger = loggerEnabled, channel = pushChannel,
-      enableServerLogger = serverLoggerEnabled, applicationId = applicationId, askPermissions = askpermissions, currentSdk = sdkToUse)
+      enableServerLogger = serverLoggerEnabled, applicationId = applicationId, askPermissions = askpermissions, currentSdk = "Flutter 1.6.9", enablePushOnForeground = enablePushOnForeground)
     //pushedService= PushedService(bindedActivity!!.activity,BackgroundMessageReceiver::class.java)
 
 

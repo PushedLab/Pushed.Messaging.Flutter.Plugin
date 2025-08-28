@@ -59,7 +59,8 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
       bool loggerEnabled = false,
       bool askPermissions = true,
       bool serverLoggerEnabled = false,
-      String? applicationId]) async {
+      String? applicationId,
+      bool enablePushOnForeground = true]) async {
     messageCallback = backgroundMessageHandler;
     methodChannel.setMethodCallHandler(_handle);
     var result = await methodChannel.invokeMethod<String>('init', {

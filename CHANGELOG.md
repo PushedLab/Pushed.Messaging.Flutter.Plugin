@@ -1,5 +1,6 @@
 ## 1.6.9
 * Pass current sdk version on app init
+* Improved control of duplicate messages
 
 ## 1.6.8
 * Tracking push clicks 

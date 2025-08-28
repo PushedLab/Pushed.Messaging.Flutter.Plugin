@@ -33,7 +33,7 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
             UserDefaults.standard.set(log+"\(Date()): \(event)\n", forKey: "pushedMessaging.pushedLog")
         }
     }
-    let sdkVersion = "Flutter 1.6.3"
+    let sdkVersion = "Flutter 1.6.9"
     let operatingSystem = "iOS \(UIDevice.current.systemVersion)"
     var phoneModel = ""
     var apnsToken: String?
@@ -57,10 +57,8 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
                 }
                 initialize(result: result)
             case "pushedMessage":
-                let lastMessageId=UserDefaults.standard.string(forKey: "pushedMessaging.lastMessageId")
                 let messageId=(call.arguments as? [String: Any])?["messageId"] as? String
-                if(messageId != nil && lastMessageId != messageId){
-                    UserDefaults.standard.set(messageId, forKey: "pushedMessaging.lastMessageId")
+                if(messageId != nil && needMessageProcess(messageId!)){
                     result(true)
                 }
                 else {
@@ -130,7 +128,25 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
         }
         addLog("Request Permission DONE")
     }
-
+    func needMessageProcess(_ messageId: String) -> Bool {
+        var processed = UserDefaults.standard.array(forKey: "pushedMessaging.processedMessageIds") as? [String] ?? []
+        let lastMessageId=UserDefaults.standard.string(forKey: "pushedMessaging.lastMessageId") ?? ""
+        if(processed.isEmpty && !lastMessageId.isEmpty){
+            processed.append(lastMessageId)
+            UserDefaults.standard.set(processed, forKey: "pushedMessaging.processedMessageIds")
+        }
+        let already = processed.contains(messageId)
+        addLog("[Dedup] Check processed for messageId: \(messageId) в†’ \(already)")
+        if already {
+            return false
+        }
+        processed.append(messageId)
+        if(processed.count>10){
+            processed.removeFirst()
+        }
+        UserDefaults.standard.set(processed, forKey: "pushedMessaging.processedMessageIds")
+        return true
+    }
     func initialize(result: @escaping FlutterResult) {
         UIApplication.shared.registerForRemoteNotifications()
         if(initNotification != nil) {
@@ -418,9 +434,7 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
             if(pushedToken==nil){
                 pushedToken=FlutterPushedMessagingPlugin.getSecToken()
             }
-            let lastMessageId=UserDefaults.standard.string(forKey: "pushedMessaging.lastMessageId") ?? ""
-            if(lastMessageId != messageId){
-                UserDefaults.standard.set(messageId, forKey: "pushedMessaging.lastMessageId")
+            if(needMessageProcess(messageId)){
                 FlutterPushedMessagingPlugin.confirmMessage(messageId, clientToken: pushedToken)
                 FlutterPushedMessagingPlugin.confirmMessageAction(messageId, clientToken: pushedToken, action: "Show")
             }
@@ -462,9 +476,7 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
             if(pushedToken==nil){
                 pushedToken=FlutterPushedMessagingPlugin.getSecToken()
             }
-            let lastMessageId=UserDefaults.standard.string(forKey: "pushedMessaging.lastMessageId") ?? ""
-            if(lastMessageId != messageId){
-                UserDefaults.standard.set(messageId, forKey: "pushedMessaging.lastMessageId")
+            if(needMessageProcess(messageId)){
                 FlutterPushedMessagingPlugin.confirmMessage(messageId, clientToken: pushedToken)
                 if(alerts && isBackground && ((alertBody as? [AnyHashable: Any]) !=  nil ||  (alertBody as? String) != nil)){
                     FlutterPushedMessagingPlugin.confirmMessageAction(messageId, clientToken: pushedToken, action: "Show")

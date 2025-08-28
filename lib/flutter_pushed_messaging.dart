@@ -20,14 +20,16 @@ class FlutterPushedMessaging {
       bool loggerEnabled = false,
       bool askPermissions = true,
       bool serverLoggerEnabled = false,
-      String? applicationId}) {
+      String? applicationId,
+      bool enablePushOnForeground = true}) {
     return FlutterPushedMessagingPlatform.instance.init(
         backgroundMessageHandler,
         notificationChannel,
         loggerEnabled,
         askPermissions,
         serverLoggerEnabled,
-        applicationId);
+        applicationId,
+        enablePushOnForeground);
   }
 
   ///Ask permissions
