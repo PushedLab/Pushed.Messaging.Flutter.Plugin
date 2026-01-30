@@ -1,3 +1,6 @@
+## 1.7.0
+* Pass ios part of plugin to native SWIFT Pushed Lib
+
 ## 1.6.9
 * Pass current sdk version on app init
 * Improved control of duplicate messages
