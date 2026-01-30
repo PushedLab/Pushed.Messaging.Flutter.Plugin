@@ -104,7 +104,7 @@ class FlutterPushedMessagingPlugin: FlutterPlugin, MethodCallHandler, ActivityAw
 
     pushedService= PushedService(bindedActivity!!.activity,BackgroundMessageReceiver::class.java,
       enableLogger = loggerEnabled, channel = pushChannel,
-      enableServerLogger = serverLoggerEnabled, applicationId = applicationId, askPermissions = askpermissions, currentSdk = "Flutter 1.6.9", enablePushOnForeground = enablePushOnForeground)
+      enableServerLogger = serverLoggerEnabled, applicationId = applicationId, askPermissions = askpermissions, currentSdk = "Flutter 1.7.0", enablePushOnForeground = enablePushOnForeground)
     //pushedService= PushedService(bindedActivity!!.activity,BackgroundMessageReceiver::class.java)
 
 

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -21,6 +20,7 @@ void main() async {
     notificationChannel: "messages",
     askPermissions: true,
     loggerEnabled: true,
+    // applicationId: "66eac3a88164a8e82897405e",
   );
   runApp(const MyApp());
 }

@@ -1,16 +1,33 @@
 PODS:
+  - connectivity_plus (0.0.1):
+    - Flutter
+  - DeviceKit (5.7.0)
   - Flutter (1.0.0)
   - flutter_pushed_messaging (0.0.1):
     - Flutter
+    - PushedMessagingiOSLibrary
   - integration_test (0.0.1):
     - Flutter
+  - PushedMessagingiOSLibrary (1.1.3):
+    - DeviceKit (~> 5.0)
+    - Starscream (~> 4.0)
+  - Starscream (4.0.8)
 
 DEPENDENCIES:
+  - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
   - Flutter (from `Flutter`)
   - flutter_pushed_messaging (from `.symlinks/plugins/flutter_pushed_messaging/ios`)
   - integration_test (from `.symlinks/plugins/integration_test/ios`)
 
+SPEC REPOS:
+  trunk:
+    - DeviceKit
+    - PushedMessagingiOSLibrary
+    - Starscream
+
 EXTERNAL SOURCES:
+  connectivity_plus:
+    :path: ".symlinks/plugins/connectivity_plus/ios"
   Flutter:
     :path: Flutter
   flutter_pushed_messaging:
@@ -19,10 +36,14 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/integration_test/ios"
 
 SPEC CHECKSUMS:
+  connectivity_plus: 2a701ffec2c0ae28a48cf7540e279787e77c447d
+  DeviceKit: d1a956e25b957efb60a87bfe70be4e00ef36846d
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
-  flutter_pushed_messaging: ba0f23c4d21a5e6cd3e363e58831d320e82f0b46
-  integration_test: ce0a3ffa1de96d1a89ca0ac26fca7ea18a749ef4
+  flutter_pushed_messaging: a08efeef4f754e76d001b25d50c058a18df9067d
+  integration_test: 252f60fa39af5e17c3aa9899d35d908a0721b573
+  PushedMessagingiOSLibrary: b86cf3efc70d95b231fdaa25b4fcbcc53e262431
+  Starscream: 19b5533ddb925208db698f0ac508a100b884a1b9
 
-PODFILE CHECKSUM: 819463e6a0290f5a72f145ba7cde16e8b6ef0796
+PODFILE CHECKSUM: 8278d64580afeee8c7333cde60072f428950d7fc
 
-COCOAPODS: 1.13.0
+COCOAPODS: 1.16.2

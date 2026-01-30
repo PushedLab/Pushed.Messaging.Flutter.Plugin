@@ -65,7 +65,8 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
     methodChannel.setMethodCallHandler(_handle);
     var result = await methodChannel.invokeMethod<String>('init', {
       "log": loggerEnabled,
-      "serverlog": loggerEnabled,
+      "serverlog": serverLoggerEnabled,
+      "enablePushOnForeground": enablePushOnForeground,
       if (applicationId != null && applicationId.isNotEmpty)
         "applicationId": applicationId
     });

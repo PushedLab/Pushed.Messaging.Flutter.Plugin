@@ -1,5 +1,5 @@
 # Uncomment this line to define a global platform for your project
-# platform :ios, '12.0'
+platform :ios, '13.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -37,8 +37,26 @@ target 'Runner' do
   end
 end
 
+target 'NotificationService' do
+  use_frameworks!
+  use_modular_headers!
+  inherit! :search_paths
+  # NOTE: PushedMessagingiOSLibrary is not application-extension-safe
+  # (uses APIs like UIApplication.shared). Keep this target pod-free and
+  # implement confirm directly in the extension if needed.
+end
+
+
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    # Flutter's podhelper may set IPHONEOS_DEPLOYMENT_TARGET lower than our Podfile platform.
+    # Force all pods to iOS 13.0+ (required by DeviceKit).
+    target.build_configurations.each do |config|
+      current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+      if current.nil? || current.to_f < 13.0
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      end
+    end
   end
 end
