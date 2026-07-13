@@ -1,1 +1,4 @@
 rootProject.name = 'flutter_pushed_messaging'
+
+include ':messaginglibrary'
+project(':messaginglibrary').projectDir = new File(rootProject.projectDir, '../../Pushed.Messaging.Android.Library/messaginglibrary')

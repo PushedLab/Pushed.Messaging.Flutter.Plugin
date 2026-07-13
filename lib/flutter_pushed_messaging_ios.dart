@@ -15,7 +15,8 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
   Function(Map<dynamic, dynamic>)? messageCallback;
 
   Future<dynamic> _handle(MethodCall call) async {
-    print("[PushedPlugin][iOS][Dart] _handle method=${call.method} args=${call.arguments}");
+    print(
+        "[PushedPlugin][iOS][Dart] _handle method=${call.method} args=${call.arguments}");
     if (call.method.startsWith("onReceiveData")) {
       try {
         var data = json.decode(call.arguments["data"]);
@@ -50,22 +51,24 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
       bool askPermissions = true,
       bool serverLoggerEnabled = false,
       String? applicationId,
-      bool enablePushOnForeground = true]) async {
+      bool enablePushOnForeground = true,
+      String? environment]) async {
     messageCallback = backgroundMessageHandler;
     methodChannel.setMethodCallHandler(_handle);
     print(
-        "[PushedPlugin][iOS][Dart] init loggerEnabled=$loggerEnabled askPermissions=$askPermissions applicationId=$applicationId");
+        "[PushedPlugin][iOS][Dart] init loggerEnabled=$loggerEnabled askPermissions=$askPermissions applicationId=$applicationId environment=$environment");
     var result = await methodChannel.invokeMethod<String>('init', {
       "log": loggerEnabled,
       "serverlog": serverLoggerEnabled,
       "enablePushOnForeground": enablePushOnForeground,
       if (applicationId != null && applicationId.isNotEmpty)
-        "applicationId": applicationId
+        "applicationId": applicationId,
+      if (environment != null && environment.isNotEmpty) "environment": environment,
     });
     if (result != "") {
       final safeResult = result ?? "";
-      final tokenPrefix =
-          safeResult.substring(0, safeResult.length > 8 ? 8 : safeResult.length);
+      final tokenPrefix = safeResult.substring(
+          0, safeResult.length > 8 ? 8 : safeResult.length);
       print("[PushedPlugin][iOS][Dart] init success tokenPrefix=$tokenPrefix");
       if (askPermissions) {
         await methodChannel
@@ -76,6 +79,11 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
       return true;
     }
     return false;
+  }
+
+  @override
+  Future<String?> getToken() async {
+    return await methodChannel.invokeMethod<String?>("getToken");
   }
 
   @override
@@ -90,6 +98,58 @@ class IosFlutterPushedMessaging extends FlutterPushedMessagingPlatform {
     if (askNotificationPermission) {
       await methodChannel.invokeMethod<bool>('requestNotificationPermissions');
     }
+  }
+
+  @override
+  Future<bool> setEnvironment(String environment) async {
+    final result = await methodChannel.invokeMethod<bool>("setEnvironment", {
+      "environment": environment,
+    });
+    // Refresh Dart-side token after env switch
+    final token = await methodChannel.invokeMethod<String>("getToken");
+    if (token != null && token.isNotEmpty) {
+      FlutterPushedMessagingPlatform.pushToken = token;
+    }
+    return result ?? false;
+  }
+
+  @override
+  Future<String> getEnvironment() async {
+    final result = await methodChannel.invokeMethod<String>("getEnvironment");
+    return result ?? "prod";
+  }
+
+  @override
+  Future<String?> resetToken() async {
+    final result = await methodChannel.invokeMethod<String?>("resetToken");
+    if (result != null && result.isNotEmpty) {
+      FlutterPushedMessagingPlatform.pushToken = result;
+      return result;
+    }
+    return null;
+  }
+
+  @override
+  Future<Map<dynamic, dynamic>> getEndpoints() async {
+    final result =
+        await methodChannel.invokeMethod<Map<dynamic, dynamic>>("getEndpoints");
+    return result ?? <dynamic, dynamic>{};
+  }
+
+  @override
+  Future<bool> resetAll() async {
+    final result = await methodChannel.invokeMethod<bool>("resetAll");
+    FlutterPushedMessagingPlatform.pushToken = null;
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> sendInteraction(String messageId, String interaction) async {
+    final result = await methodChannel.invokeMethod<bool>("sendInteraction", {
+      "messageId": messageId,
+      "interaction": interaction,
+    });
+    return result ?? false;
   }
 
   Future<void> addLog(String event) async {

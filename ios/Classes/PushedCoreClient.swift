@@ -13,6 +13,39 @@ public class PushedCoreClient: NSObject {
     // Must match native library crypto params for backwards compatibility
     private static let tokenCryptoKey = "Rt9n4BbW7Y97fhUkyygddZ8sr8xPNYaU"
     private static let tokenCryptoIv = "xjPamAwc7QLYQkhm"
+    
+    // App Group for environment reading
+    private static let kAppGroupIdentifier = "group.ru.pushed.messaging"
+
+    private static func getEnvironmentHost(type: String) -> String {
+        let env: String
+        if let shared = UserDefaults(suiteName: kAppGroupIdentifier) {
+            env = shared.string(forKey: "pushedMessaging.environment") ?? "prod"
+        } else {
+            env = "prod"
+        }
+        
+        switch env.lowercased() {
+        case "dev":
+            switch type {
+            case "pub": return "pub.pushed.dev"
+            case "api": return "api.pushed.dev"
+            default: return "pub.pushed.dev"
+            }
+        case "load":
+            switch type {
+            case "pub": return "pub.multipushed.online"
+            case "api": return "api.multipushed.online"
+            default: return "pub.multipushed.online"
+            }
+        default: // prod
+            switch type {
+            case "pub": return "pub.multipushed.ru"
+            case "api": return "api.multipushed.ru"
+            default: return "pub.multipushed.ru"
+            }
+        }
+    }
 
     // MARK: - Public API
 
@@ -66,7 +99,7 @@ public class PushedCoreClient: NSObject {
         }
         let basicAuth = "Basic \(credentialsData.base64EncodedString())"
 
-        guard let url = URL(string: "https://pub.multipushed.ru/v2/confirm?transportKind=Apns") else {
+        guard let url = URL(string: "https://\(getEnvironmentHost(type: "pub"))/v2/confirm?transportKind=Apns") else {
             completion(false)
             return
         }
@@ -99,7 +132,7 @@ public class PushedCoreClient: NSObject {
         let clientToken = loadClientTokenFromKeychain()
         guard !clientToken.isEmpty else { return }
 
-        let urlString = "https://api.multipushed.ru/v2/mobile-push/confirm-client-interaction?clientInteraction=\(interaction)"
+        let urlString = "https://\(getEnvironmentHost(type: "api"))/v2/mobile-push/confirm-client-interaction?clientInteraction=\(interaction)"
         guard let url = URL(string: urlString) else { return }
 
         var request = URLRequest(url: url)

@@ -3,6 +3,9 @@ import 'flutter_pushed_messaging_platform_interface.dart';
 enum ServiceStatus { active, disconnected, notActive }
 
 class FlutterPushedMessaging {
+  /// SDK version (package version)
+  static const String sdkVersion = '1.7.0';
+
   ///Return current service status
   static ServiceStatus get status => FlutterPushedMessagingPlatform.status;
 
@@ -10,10 +13,6 @@ class FlutterPushedMessaging {
   static String? get token => FlutterPushedMessagingPlatform.pushToken;
 
   ///Init and start background service
-  ///notificationChannel - (Android only) notification channel (if cahnnel == null The library will not show notifications)
-  ///loggerEnabled - Allows the library to save a local log for debugging purposes
-  ///askPermissions -  If set to true, permissions are automatically requested.
-  ///applicationId - Custom identifier passed to backend when issuing client token (optional).
   static Future<bool> init(
       Function(Map<dynamic, dynamic>)? backgroundMessageHandler,
       {String? notificationChannel = "messages",
@@ -21,7 +20,9 @@ class FlutterPushedMessaging {
       bool askPermissions = true,
       bool serverLoggerEnabled = false,
       String? applicationId,
-      bool enablePushOnForeground = true}) {
+      bool enablePushOnForeground = true,
+      /// Pushed backend environment: "prod", "dev", or "load". Keeps native SDK in sync with app prefs.
+      String? environment}) {
     return FlutterPushedMessagingPlatform.instance.init(
         backgroundMessageHandler,
         notificationChannel,
@@ -29,12 +30,11 @@ class FlutterPushedMessaging {
         askPermissions,
         serverLoggerEnabled,
         applicationId,
-        enablePushOnForeground);
+        enablePushOnForeground,
+        environment);
   }
 
   ///Ask permissions
-  ///askNotificationPermission - Ask permissions to display notifications.
-  ///askBackgroundPermission - Ask permissions to work in the background(Android only)
   static Future<void> askPermissions(
       {bool askNotificationPermission = true,
       bool askBackgroundPermission = true}) {
@@ -65,5 +65,45 @@ class FlutterPushedMessaging {
   ///Returns the service log(debug only)
   static Future<String?> getLog() {
     return FlutterPushedMessagingPlatform.instance.getLog();
+  }
+
+  /// Get current push token.
+  static Future<String?> getToken() {
+    return FlutterPushedMessagingPlatform.instance.getToken();
+  }
+
+  /// Set Pushed environment.
+  /// Allowed: "prod", "dev", "load"
+  static Future<bool> setEnvironment(String environment) {
+    return FlutterPushedMessagingPlatform.instance.setEnvironment(environment);
+  }
+
+  /// Get current Pushed environment.
+  /// Returns: "prod", "dev", or "load"
+  static Future<String> getEnvironment() {
+    return FlutterPushedMessagingPlatform.instance.getEnvironment();
+  }
+
+  /// Re-issue Pushed token in the current environment.
+  static Future<String?> resetToken() {
+    return FlutterPushedMessagingPlatform.instance.resetToken();
+  }
+
+  /// Returns resolved endpoints for current environment.
+  static Future<Map<dynamic, dynamic>> getEndpoints() {
+    return FlutterPushedMessagingPlatform.instance.getEndpoints();
+  }
+
+  /// Reset all tokens and environment back to prod.
+  static Future<bool> resetAll() {
+    return FlutterPushedMessagingPlatform.instance.resetAll();
+  }
+
+  /// Send interaction event to Pushed server.
+  /// [messageId] — Pushed messageId from the push payload.
+  /// [interaction] — "Show", "Click", or "Close".
+  static Future<bool> sendInteraction(String messageId, String interaction) {
+    return FlutterPushedMessagingPlatform.instance
+        .sendInteraction(messageId, interaction);
   }
 }
