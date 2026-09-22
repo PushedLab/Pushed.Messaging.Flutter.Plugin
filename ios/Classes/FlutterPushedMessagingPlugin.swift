@@ -111,9 +111,17 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
         let targetStr = explicit ?? inferredEnvFromApplicationId(appId) ?? getCurrentEnvironment()
         let oldStr = getCurrentEnvironment()
         guard targetStr != oldStr else { return }
-        if let currentToken = getClientTokenCompat(), !currentToken.isEmpty {
-            saveTokenForEnv(oldStr, currentToken)
-        }
+        // tokenDiag: the compat/legacy token slot isn't itself namespaced by
+        // environment — it's whatever the SDK last physically held, which
+        // isn't reliably `oldStr`'s token (e.g. right after a reinstall the
+        // env-preference keychain item and the raw token item have no
+        // guaranteed correlation). Per-env buckets are the source of truth;
+        // never backfill a bucket from this raw slot — only `init()`'s own
+        // per-env-bucket lookup and `onClientTokenReceived` (which saves a
+        // freshly-issued token under the environment that was actually live
+        // when it arrived) are trustworthy writers of per-env storage.
+        print("📣 Pushed Plugin: [tokenDiag] sync: oldStr=\(oldStr) targetStr=\(targetStr) compatToken=\(getClientTokenCompat() ?? "nil") "
+            + "existingOldBucket=\(loadTokenForEnv(oldStr) ?? "nil") existingTargetBucket=\(loadTokenForEnv(targetStr) ?? "nil")")
         setCurrentEnvironment(targetStr)
         print("📣 Pushed Plugin: init synced keychain env \(oldStr) -> \(targetStr) (Dart / applicationId)")
     }
@@ -168,9 +176,16 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
             print("📣 Pushed Plugin: [tokenDiag] init OUT: keychain env=\(currentEnvStr) setup applicationId=\(appIdToUse ?? "nil") (Dart was env=\(dartEnvRaw ?? "nil") appId=\(dartAppIdRaw ?? "nil"))")
             print("📣 Pushed Plugin: Using environment: \(currentEnvStr), applicationId: \(appIdToUse ?? "nil")")
             
-            PushedMessagingiOSLibrary.setup(delegate, askPermissions: true, loggerEnabled: logEnabled, useAPNS: true, enableWebSocket: true, environment: currentEnv, sdkVersion: "Flutter 1.7.0") 
+            PushedMessagingiOSLibrary.setup(delegate, askPermissions: true, loggerEnabled: logEnabled, useAPNS: false, enableWebSocket: true, environment: currentEnv, sdkVersion: "Flutter 1.7.1.2")
             // PushedMessagingiOSLibrary.clearTokenForTesting()
             PushedMessagingiOSLibrary.extensionHandlesConfirmation = true
+
+            // Registering the BGTask handlers (done by the host app at launch via
+            // registerBackgroundTasksAtLaunch) only tells iOS *what* to run — the tasks
+            // still have to be submitted to BGTaskScheduler, otherwise they never fire.
+            // The native example does this explicitly; do the same here so Flutter apps
+            // get background WebSocket processing without extra AppDelegate code.
+            PushedMessagingiOSLibrary.enableBackgroundWebSocketTasks()
             
             PushedMessagingiOSLibrary.onClientTokenReceived = { token in
                 let envStr = PushedMessagingiOSLibrary.currentEnvironment.rawValue
@@ -188,22 +203,19 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
             print("📣 Pushed Plugin: [MIGRATION DEBUG] libraryToken=\(PushedMessagingiOSLibrary.clientToken ?? "nil")")
             
             if let saved = savedEnvToken, !saved.isEmpty {
-                // If both per-env storage and native keychain have a token but they differ, the native
-                // keychain is the live source used by the SDK; do not overwrite it with a stale saved value.
-                let tokenToReturn: String
-                if let kc = keychainToken, !kc.isEmpty {
-                    if kc != saved {
-                        print("📣 Pushed Plugin: init per-env saved token != keychain; keeping keychain, syncing per-env storage for \(currentEnvStr)")
-                        Self.saveTokenForEnv(currentEnvStr, kc)
-                        tokenToReturn = kc
-                    } else {
-                        tokenToReturn = saved
-                    }
+                // Per-env storage is the source of truth (it's only ever written by
+                // onClientTokenReceived, tied to whichever environment was actually
+                // live at receipt time). The raw/compat keychain slot is just a
+                // working copy the SDK reads at runtime — if it disagrees, it's
+                // stale (e.g. left over from a previous environment), not the SDK
+                // "live" value; always re-sync it FROM the per-env bucket.
+                let tokenToReturn = saved
+                if let kc = keychainToken, !kc.isEmpty, kc != saved {
+                    print("📣 Pushed Plugin: init per-env saved token != keychain; keychain is stale, restoring saved token for \(currentEnvStr)")
                 } else {
-                    Self.writeKeychainToken(saved)
                     print("📣 Pushed Plugin: init restored saved token for \(currentEnvStr): \(saved.prefix(8))…")
-                    tokenToReturn = saved
                 }
+                Self.writeKeychainToken(saved)
                 // Only refresh if we don't have a token in the library yet, or if we need to register APNS.
                 // Calling it unconditionally causes the server to issue a new token.
                 if PushedMessagingiOSLibrary.clientToken == nil || PushedMessagingiOSLibrary.clientToken!.isEmpty {
@@ -355,11 +367,15 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
                 return
             }
             let oldEnv = Self.getCurrentEnvironment()
-            
-            if let currentToken = Self.getClientTokenCompat(), !currentToken.isEmpty {
-                Self.saveTokenForEnv(oldEnv, currentToken)
-            }
-            
+            // tokenDiag: per-env buckets are the source of truth (only ever
+            // written by onClientTokenReceived, tied to whichever environment
+            // was actually live at receipt time) — don't backfill oldEnv's
+            // bucket from the raw/compat slot here; that's how a stale token
+            // from an earlier environment previously leaked into another
+            // environment's bucket.
+            print("📣 Pushed Plugin: [tokenDiag] setEnvironment: oldEnv=\(oldEnv) newEnv=\(envName) compatToken=\(Self.getClientTokenCompat() ?? "nil") "
+                + "existingOldBucket=\(Self.loadTokenForEnv(oldEnv) ?? "nil") existingNewBucket=\(Self.loadTokenForEnv(envName) ?? "nil")")
+
             Self.setCurrentEnvironment(envName)
             print("📣 Pushed Plugin: setEnvironment \(oldEnv) -> \(envName)")
             

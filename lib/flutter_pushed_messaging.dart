@@ -4,7 +4,7 @@ enum ServiceStatus { active, disconnected, notActive }
 
 class FlutterPushedMessaging {
   /// SDK version (package version)
-  static const String sdkVersion = '1.7.0';
+  static const String sdkVersion = '1.7.1.2';
 
   ///Return current service status
   static ServiceStatus get status => FlutterPushedMessagingPlatform.status;
@@ -21,6 +21,7 @@ class FlutterPushedMessaging {
       bool serverLoggerEnabled = false,
       String? applicationId,
       bool enablePushOnForeground = true,
+
       /// Pushed backend environment: "prod", "dev", or "load". Keeps native SDK in sync with app prefs.
       String? environment}) {
     return FlutterPushedMessagingPlatform.instance.init(
