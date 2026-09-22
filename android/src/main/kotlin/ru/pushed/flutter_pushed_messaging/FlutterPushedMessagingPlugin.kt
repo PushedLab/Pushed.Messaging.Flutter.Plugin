@@ -161,7 +161,7 @@ class FlutterPushedMessagingPlugin: FlutterPlugin, MethodCallHandler, ActivityAw
       askPermissions,
       serverLoggerEnabled,
       appIdForEnv,
-      "Flutter 1.7.0"
+      "Flutter 1.8.0"
     )
     pushedService?.setStatusHandler {
       mainHandler!!.post {
@@ -313,7 +313,7 @@ class FlutterPushedMessagingPlugin: FlutterPlugin, MethodCallHandler, ActivityAw
       askpermissions,
       serverLoggerEnabled,
       applicationIdForInit,
-      "Flutter 1.7.0"
+      "Flutter 1.8.0"
     )
     //pushedService= PushedService(bindedActivity!!.activity,BackgroundMessageReceiver::class.java)
 

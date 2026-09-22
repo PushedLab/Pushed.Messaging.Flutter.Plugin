@@ -1,3 +1,15 @@
+## 1.8.0
+* iOS: fixed WebSocket not connecting after a cold start — connecting is no longer
+  tied to a connectivity-change event, the native library connects as soon as the
+  client token is available
+* iOS: background tasks are now scheduled for WebSocket mode
+  (`FlutterPushedMessagingPlugin.registerBackgroundTasksAtLaunch()` must be called
+  from `AppDelegate.didFinishLaunchingWithOptions` — see README)
+* Added `getToken()`, `resetToken()`, `resetAll()`, `setEnvironment()`,
+  `getEnvironment()`, `getEndpoints()` and `sendInteraction()` to the public API
+* Per-environment token storage moved to Keychain
+* Android: reworked native plugin (environment support, token handling)
+
 ## 1.7.0
 * Pass ios part of plugin to native SWIFT Pushed Lib
 

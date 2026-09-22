@@ -4,7 +4,7 @@ enum ServiceStatus { active, disconnected, notActive }
 
 class FlutterPushedMessaging {
   /// SDK version (package version)
-  static const String sdkVersion = '1.7.1.2';
+  static const String sdkVersion = '1.8.0';
 
   ///Return current service status
   static ServiceStatus get status => FlutterPushedMessagingPlatform.status;

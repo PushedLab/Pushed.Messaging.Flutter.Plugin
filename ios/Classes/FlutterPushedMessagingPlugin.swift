@@ -176,7 +176,7 @@ public class FlutterPushedMessagingPlugin: NSObject, FlutterPlugin, UNUserNotifi
             print("📣 Pushed Plugin: [tokenDiag] init OUT: keychain env=\(currentEnvStr) setup applicationId=\(appIdToUse ?? "nil") (Dart was env=\(dartEnvRaw ?? "nil") appId=\(dartAppIdRaw ?? "nil"))")
             print("📣 Pushed Plugin: Using environment: \(currentEnvStr), applicationId: \(appIdToUse ?? "nil")")
             
-            PushedMessagingiOSLibrary.setup(delegate, askPermissions: true, loggerEnabled: logEnabled, useAPNS: false, enableWebSocket: true, environment: currentEnv, sdkVersion: "Flutter 1.7.1.2")
+            PushedMessagingiOSLibrary.setup(delegate, askPermissions: true, loggerEnabled: logEnabled, useAPNS: true, enableWebSocket: true, environment: currentEnv, sdkVersion: "Flutter 1.8.0")
             // PushedMessagingiOSLibrary.clearTokenForTesting()
             PushedMessagingiOSLibrary.extensionHandlesConfirmation = true
 

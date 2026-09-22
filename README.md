@@ -25,7 +25,7 @@
 
 ```yaml
 dependencies:
-  flutter_pushed_messaging: ^1.7.0
+  flutter_pushed_messaging: ^1.8.0
 ```
 
 Затем выполните:
@@ -69,7 +69,7 @@ import 'package:flutter_pushed_messaging/flutter_pushed_messaging.dart';
 
 ```yaml
 dependencies:
-  flutter_pushed_messaging: ^1.7.0
+  flutter_pushed_messaging: ^1.8.0
 ```
 
 Затем выполните:
@@ -105,16 +105,43 @@ import 'package:flutter_pushed_messaging/flutter_pushed_messaging.dart';
 3. **Добавьте возможность Background Modes:**
    - Нажмите **+ Capability** → **Background Modes**
    - Включите **Remote notifications**
+   - Включите **Background processing** — нужно для фоновых задач WebSocket
+
+#### ⚙️ Идентификаторы фоновых задач в `Info.plist`
+
+Чтобы iOS разрешила запускать фоновые задачи плагина, добавьте в `ios/Runner/Info.plist`:
+
+```xml
+<key>BGTaskSchedulerPermittedIdentifiers</key>
+<array>
+    <string>ru.pushed.messaging</string>
+    <string>ru.pushed.messaging.refresh</string>
+</array>
+```
+
+> ⚠️ Без этих идентификаторов `BGTaskScheduler` отклонит регистрацию задач, и соединение не будет восстанавливаться в фоне.
 
 #### 📝 Настройка AppDelegate
 
 Добавьте это в ваш `AppDelegate.swift` (или `AppDelegate.m`) в метод `didFinishLaunchingWithOptions`:
 
 ```swift
+import flutter_pushed_messaging
+
+// ...
+
+// Обязательно ДО выхода из didFinishLaunchingWithOptions:
+// iOS требует регистрировать обработчики BGTask на старте приложения,
+// а плагин инициализируется позже — поэтому вызов делается здесь.
+FlutterPushedMessagingPlugin.registerBackgroundTasksAtLaunch()
+
 if #available(iOS 10.0, *) {
   UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
 }
 ```
+
+> ⚠️ Если пропустить `registerBackgroundTasksAtLaunch()`, фоновые задачи молча не запустятся —
+> в логах появится `BGTask handlers not registered yet`.
 
 <div align="center">
 
