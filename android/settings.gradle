@@ -1,1 +1,5 @@
 rootProject.name = 'flutter_pushed_messaging'
+
+// Local-development only (see the note in build.gradle) — must stay commented out when publishing:
+// include ':messaginglibrary'
+// project(':messaginglibrary').projectDir = new File(rootProject.projectDir, '../../Pushed.Messaging.Android.Library/messaginglibrary')

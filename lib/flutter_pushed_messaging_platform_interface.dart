@@ -49,7 +49,8 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
       bool askPermissions = true,
       bool serverLoggerEnabled = false,
       String? applicationId,
-      bool enablePushOnForeground = true]) {
+      bool enablePushOnForeground = true,
+      String? environment]) {
     throw UnimplementedError('init() has not been implemented.');
   }
 
@@ -65,5 +66,40 @@ abstract class FlutterPushedMessagingPlatform extends PlatformInterface {
 
   Future<String?> getLog() {
     throw UnimplementedError('getLog() has not been implemented.');
+  }
+
+  Future<String?> getToken() {
+    throw UnimplementedError('getToken() has not been implemented.');
+  }
+
+  /// Set Pushed environment.
+  /// Allowed: "prod", "dev", "load"
+  Future<bool> setEnvironment(String environment) {
+    throw UnimplementedError('setEnvironment() has not been implemented.');
+  }
+
+  /// Get current Pushed environment.
+  Future<String> getEnvironment() {
+    throw UnimplementedError('getEnvironment() has not been implemented.');
+  }
+
+  /// Re-issue Pushed token in the current environment.
+  Future<String?> resetToken() {
+    throw UnimplementedError('resetToken() has not been implemented.');
+  }
+
+  /// Returns resolved endpoints for current environment.
+  Future<Map<dynamic, dynamic>> getEndpoints() {
+    throw UnimplementedError('getEndpoints() has not been implemented.');
+  }
+
+  /// Reset all tokens and environment back to prod.
+  Future<bool> resetAll() {
+    throw UnimplementedError('resetAll() has not been implemented.');
+  }
+
+  /// Send interaction event (Show/Click/Close) for a Pushed messageId.
+  Future<bool> sendInteraction(String messageId, String interaction) {
+    throw UnimplementedError('sendInteraction() has not been implemented.');
   }
 }
